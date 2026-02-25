@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Plus,
   Pencil,
@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Filter,
   X,
+  Columns2,
 } from "lucide-react";
 import { useGetContentTypesQuery, useGetDocumentsQuery, useDeleteDocumentMutation } from "@/store/api/cmsApi";
 import {
@@ -25,6 +26,7 @@ import {
 
 const PAGE_SIZES = [10, 25, 50, 100];
 const SEARCH_DEBOUNCE_MS = 400;
+const COLUMNS_STORAGE_KEY = "content-manager-visible-columns";
 
 type Attr = { name: string; type: string; enum?: string[] };
 
@@ -47,6 +49,9 @@ export default function ContentManagerListPage() {
   const [filterRows, setFilterRows] = useState<
     { id: string; field: string; operator: string; value: string }[]
   >([]);
+  const [showColumnPanel, setShowColumnPanel] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
+  const columnPanelRef = useRef<HTMLDivElement>(null);
 
   const { data: contentTypes, isLoading: isLoadingTypes } = useGetContentTypesQuery();
 
@@ -58,6 +63,78 @@ export default function ContentManagerListPage() {
       (a: { name: string; type: string }) =>
         a.type === "text" || a.name === "title" || a.name === "name"
     )?.name ?? "documentId";
+
+  const availableColumnIds = useMemo(() => {
+    const system = ["documentId", "createdAt", "updatedAt"] as const;
+    const attrNames = attributes.map((a) => a.name);
+    const withTitle = [titleField, ...attrNames.filter((n) => n !== titleField)];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const id of withTitle) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        out.push(id);
+      }
+    }
+    for (const id of system) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        out.push(id);
+      }
+    }
+    return out;
+  }, [titleField, attributes]);
+
+  useEffect(() => {
+    if (!pluralId || availableColumnIds.length === 0) return;
+    const key = `${COLUMNS_STORAGE_KEY}-${pluralId}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) {
+          const valid = (parsed as string[]).filter((id) =>
+            availableColumnIds.includes(id)
+          );
+          if (valid.length > 0) {
+            setVisibleColumns(valid);
+            return;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setVisibleColumns([titleField, "documentId", "createdAt"]);
+  }, [pluralId, availableColumnIds.join(","), titleField]);
+
+  useEffect(() => {
+    if (!pluralId || visibleColumns.length === 0) return;
+    const key = `${COLUMNS_STORAGE_KEY}-${pluralId}`;
+    try {
+      localStorage.setItem(key, JSON.stringify(visibleColumns));
+    } catch {
+      // ignore
+    }
+  }, [pluralId, visibleColumns]);
+
+  const setColumnVisible = useCallback((columnId: string, visible: boolean) => {
+    setVisibleColumns((prev) => {
+      if (visible) return prev.includes(columnId) ? prev : [...prev, columnId];
+      return prev.filter((c) => c !== columnId);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!showColumnPanel) return;
+    const handleClick = (e: MouseEvent) => {
+      if (columnPanelRef.current && !columnPanelRef.current.contains(e.target as Node)) {
+        setShowColumnPanel(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showColumnPanel]);
 
   const filterFieldOptions = useMemo(() => {
     const list: { value: string; label: string }[] = [
@@ -85,6 +162,11 @@ export default function ContentManagerListPage() {
     () => [titleField, "documentId", "createdAt", "updatedAt"],
     [titleField]
   );
+
+  const columnsToShow =
+    visibleColumns.length > 0
+      ? visibleColumns
+      : [titleField, "documentId", "createdAt"];
 
   const sortParam = sortField != null ? `${sortField}:${sortOrder}` : undefined;
   const apiFilters = useMemo(() => buildFiltersFromRows(filterRows), [filterRows]);
@@ -289,6 +371,40 @@ export default function ContentManagerListPage() {
           </select>
         </label>
 
+        <div className="relative" ref={columnPanelRef}>
+          <button
+            type="button"
+            onClick={() => setShowColumnPanel((s) => !s)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800 text-sm font-medium"
+          >
+            <Columns2 className="w-4 h-4" />
+            Columns
+          </button>
+          {showColumnPanel && (
+            <div className="absolute left-0 top-full mt-1 z-20 min-w-[220px] py-2 rounded-xl border border-zinc-800 bg-zinc-900 shadow-xl">
+              <div className="px-3 py-1.5 text-xs font-semibold text-zinc-500 uppercase border-b border-zinc-800">
+                Show / hide columns
+              </div>
+              <div className="max-h-64 overflow-y-auto px-1 py-1">
+                {availableColumnIds.map((colId) => (
+                  <label
+                    key={colId}
+                    className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-zinc-800/50 cursor-pointer text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={columnsToShow.includes(colId)}
+                      onChange={(e) => setColumnVisible(colId, e.target.checked)}
+                      className="rounded border-zinc-600 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-zinc-300">{colId}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={() => setShowFilters((s) => !s)}
@@ -386,15 +502,22 @@ export default function ContentManagerListPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-800">
-                {sortableFields.includes(titleField) ? (
-                  <SortableTh label={titleField} field={titleField} />
-                ) : (
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                    {titleField}
-                  </th>
+                {columnsToShow.map((colId) =>
+                  sortableFields.includes(colId) ? (
+                    <SortableTh
+                      key={colId}
+                      label={colId}
+                      field={colId}
+                    />
+                  ) : (
+                    <th
+                      key={colId}
+                      className="text-left px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider"
+                    >
+                      {colId}
+                    </th>
+                  )
                 )}
-                <SortableTh label="documentId" field="documentId" />
-                <SortableTh label="createdAt" field="createdAt" />
                 <th className="text-right px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -404,21 +527,40 @@ export default function ContentManagerListPage() {
               {documents.map((doc) => {
                 const docId = doc.documentId as string;
                 const title = (doc[titleField] as string) ?? docId ?? "—";
-                const createdAt = doc.createdAt as string | undefined;
                 return (
                   <tr key={docId} className="hover:bg-zinc-800/30">
-                    <td className="px-6 py-3">
-                      <Link
-                        href={`/admin/content-manager/${pluralId}/${docId}`}
-                        className="font-medium text-white hover:underline"
-                      >
-                        {String(title)}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-3 text-sm text-zinc-500 font-mono">{docId}</td>
-                    <td className="px-6 py-3 text-sm text-zinc-500">
-                      {createdAt ? new Date(createdAt).toLocaleString() : "—"}
-                    </td>
+                    {columnsToShow.map((colId) => {
+                      const val = doc[colId];
+                      const isTitle = colId === titleField;
+                      const cellContent =
+                        colId === "documentId"
+                          ? docId
+                          : colId === "createdAt" || colId === "updatedAt"
+                            ? val
+                              ? new Date(val as string).toLocaleString()
+                              : "—"
+                            : val != null && val !== ""
+                              ? String(val)
+                              : "—";
+                      return (
+                        <td key={colId} className="px-6 py-3 text-sm text-zinc-400">
+                          {isTitle ? (
+                            <Link
+                              href={`/admin/content-manager/${pluralId}/${docId}`}
+                              className="font-medium text-white hover:underline"
+                            >
+                              {String(cellContent)}
+                            </Link>
+                          ) : (
+                            colId === "documentId" ? (
+                              <span className="font-mono text-zinc-500">{cellContent}</span>
+                            ) : (
+                              cellContent
+                            )
+                          )}
+                        </td>
+                      );
+                    })}
                     <td className="px-6 py-3 text-right">
                       <Link
                         href={`/admin/content-manager/${pluralId}/${docId}`}
