@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -8,13 +9,15 @@ import {
   FileText,
   Image,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { AuthGuard } from "@/components/AuthGuard";
+import { useGetContentTypesQuery } from "@/store/api/cmsApi";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/content-manager", label: "Content Manager", icon: FileText, hasSubmenu: true },
   { href: "/admin/content-type-builder", label: "Content-Type Builder", icon: Boxes },
-  { href: "/admin/content-manager", label: "Content Manager", icon: FileText },
   { href: "/admin/media-library", label: "Media Library", icon: Image },
 ];
 
@@ -24,6 +27,14 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isContentManager = pathname.startsWith("/admin/content-manager");
+  const [contentManagerOpen, setContentManagerOpen] = useState(isContentManager);
+
+  useEffect(() => {
+    if (isContentManager) setContentManagerOpen(true);
+  }, [isContentManager]);
+
+  const { data: contentTypes } = useGetContentTypesQuery();
 
   return (
     <AuthGuard>
@@ -40,8 +51,67 @@ export default function AdminLayout({
               Next-CMS
             </Link>
           </div>
-          <nav className="flex-1 p-3 space-y-0.5">
+          <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
             {navItems.map((item) => {
+              const hasSubmenu = "hasSubmenu" in item && item.hasSubmenu;
+              if (hasSubmenu && item.href === "/admin/content-manager") {
+                const isActive = isContentManager;
+                const Icon = item.icon;
+                return (
+                  <div key={item.href}>
+                    <button
+                      type="button"
+                      onClick={() => setContentManagerOpen((o) => !o)}
+                      className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-indigo-600/20 text-indigo-400"
+                          : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 shrink-0" />
+                      {item.label}
+                      {contentManagerOpen ? (
+                        <ChevronDown className="w-4 h-4 ml-auto" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 ml-auto" />
+                      )}
+                    </button>
+                    {contentManagerOpen && (
+                      <div className="mt-0.5 ml-4 pl-3 border-l border-zinc-800 space-y-0.5">
+                        <Link
+                          href="/admin/content-manager"
+                          className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm ${
+                            pathname === "/admin/content-manager"
+                              ? "text-indigo-400"
+                              : "text-zinc-500 hover:text-white"
+                          }`}
+                        >
+                          Overview
+                        </Link>
+                        {(contentTypes ?? []).map((ct) => {
+                          const href = `/admin/content-manager/${ct.pluralId}`;
+                          const active = pathname === href || (pathname.startsWith(href + "/") && pathname.length > href.length);
+                          return (
+                            <Link
+                              key={ct.id}
+                              href={href}
+                              className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm truncate ${
+                                active ? "text-indigo-400" : "text-zinc-500 hover:text-white"
+                              }`}
+                              title={ct.name}
+                            >
+                              {ct.name}
+                            </Link>
+                          );
+                        })}
+                        {(!contentTypes || contentTypes.length === 0) && (
+                          <p className="px-2.5 py-2 text-xs text-zinc-600">No content types</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
               const Icon = item.icon;
               return (
