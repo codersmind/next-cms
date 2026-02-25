@@ -260,7 +260,7 @@ function FieldByType({
 }: {
   attr: ContentTypeAttribute;
   contentTypes: { singularId: string; pluralId: string; name: string }[];
-  components: { id: string; name: string; category: string; attributes: ContentTypeAttribute[] }[];
+  components: { id: string; name: string; category: string; attributes: ContentTypeAttribute[], icon: string | null }[];
 }) {
   const inputClass =
     "w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
