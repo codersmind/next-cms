@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findOneDocument, updateDocument, deleteDocument } from "@/lib/document-service";
+import { findOneDocument, updateDocument, deleteDocument, UniqueConstraintError } from "@/lib/document-service";
 import { parseContentQuery } from "@/lib/parse-query";
 import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 import { contentTypeAction } from "@/lib/permissions";
@@ -49,11 +49,18 @@ export async function PUT(
         : typeof body.publishedAt === "string" && body.publishedAt.trim() !== ""
           ? new Date(body.publishedAt)
           : undefined;
-  const result = await updateDocument(pluralId, documentId, body.data ?? {}, {
-    ...(publishedAtOpt !== undefined && { publishedAt: publishedAtOpt }),
-  });
-  if (!result) return NextResponse.json({ error: "Update failed" }, { status: 404 });
-  return NextResponse.json(result);
+  try {
+    const result = await updateDocument(pluralId, documentId, body.data ?? {}, {
+      ...(publishedAtOpt !== undefined && { publishedAt: publishedAtOpt }),
+    });
+    if (!result) return NextResponse.json({ error: "Update failed" }, { status: 404 });
+    return NextResponse.json(result);
+  } catch (e) {
+    if (e instanceof UniqueConstraintError) {
+      return NextResponse.json({ error: e.message, field: e.field }, { status: 400 });
+    }
+    throw e;
+  }
 }
 
 export async function DELETE(

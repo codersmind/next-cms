@@ -3,6 +3,17 @@ import type { Attribute, RelationAttribute, MediaAttribute } from "@/types/schem
 
 type DocumentWithContentType = Awaited<ReturnType<typeof prisma.document.findMany>>[number];
 
+/** Thrown when a unique field value already exists on another document */
+export class UniqueConstraintError extends Error {
+  constructor(
+    message: string,
+    public readonly field: string
+  ) {
+    super(message);
+    this.name = "UniqueConstraintError";
+  }
+}
+
 const RESERVED_API_IDS = ["auth", "upload", "content-types", "content-manager", "users", "roles", "permissions", "media", "admin"];
 
 export function isReservedApiId(pluralId: string): boolean {
@@ -378,6 +389,46 @@ export async function findOneDocument(
   return { data, meta: {} };
 }
 
+/** Compare two values for uniqueness (normalize strings, allow multiple null/empty) */
+function sameUniqueValue(a: unknown, b: unknown): boolean {
+  if (a == null || a === "") return false; // don't consider empty as duplicate
+  if (b == null || b === "") return false;
+  const sa = typeof a === "string" ? a.trim() : a;
+  const sb = typeof b === "string" ? b.trim() : b;
+  return sa === sb;
+}
+
+async function checkUniqueConstraints(
+  contentTypeId: string,
+  attributes: Attribute[],
+  dataToCheck: Record<string, unknown>,
+  excludeDocumentId?: string
+): Promise<void> {
+  const uniqueAttrs = attributes.filter((a) => (a as { unique?: boolean }).unique === true);
+  if (uniqueAttrs.length === 0) return;
+
+  const docs = await prisma.document.findMany({
+    where: { contentTypeId },
+    select: { id: true, data: true },
+  });
+
+  for (const attr of uniqueAttrs) {
+    const value = dataToCheck[attr.name];
+    if (value == null || value === "") continue;
+    for (const doc of docs) {
+      if (excludeDocumentId && doc.id === excludeDocumentId) continue;
+      const docData = JSON.parse(doc.data) as Record<string, unknown>;
+      const existing = docData[attr.name];
+      if (sameUniqueValue(value, existing)) {
+        throw new UniqueConstraintError(
+          `Another document already has this value for "${attr.name}".`,
+          attr.name
+        );
+      }
+    }
+  }
+}
+
 export async function createDocument(
   pluralId: string,
   body: Record<string, unknown>,
@@ -392,6 +443,9 @@ export async function createDocument(
 
   const attributes = parseAttributes(contentType.attributes);
   const { data: cleanData, relationFields } = extractRelations(attributes, body);
+
+  await checkUniqueConstraints(contentType.id, attributes, cleanData);
+
   const documentId = generateDocumentId();
 
   // Use explicit publishedAt from client, else content-type default (published vs draft)
@@ -441,6 +495,8 @@ export async function updateDocument(
 
   const currentData = JSON.parse(doc.data) as Record<string, unknown>;
   const mergedData = { ...currentData, ...cleanData };
+
+  await checkUniqueConstraints(contentType.id, attributes, mergedData, doc.id);
 
   let publishedAt: Date | null = doc.publishedAt;
   if (options.publishedAt !== undefined) {

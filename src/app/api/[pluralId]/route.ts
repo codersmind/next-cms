@@ -4,6 +4,7 @@ import {
   createDocument,
   isReservedApiId,
   getContentTypeByPlural,
+  UniqueConstraintError,
 } from "@/lib/document-service";
 import { parseContentQuery } from "@/lib/parse-query";
 
@@ -55,9 +56,16 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
   const data = body.data ?? body;
-  const result = await createDocument(pluralId, data as Record<string, unknown>);
-  if (!result) {
-    return NextResponse.json({ error: "Create failed (e.g. single type already exists)" }, { status: 400 });
+  try {
+    const result = await createDocument(pluralId, data as Record<string, unknown>);
+    if (!result) {
+      return NextResponse.json({ error: "Create failed (e.g. single type already exists)" }, { status: 400 });
+    }
+    return NextResponse.json(result);
+  } catch (e) {
+    if (e instanceof UniqueConstraintError) {
+      return NextResponse.json({ error: e.message, field: e.field }, { status: 400 });
+    }
+    throw e;
   }
-  return NextResponse.json(result);
 }

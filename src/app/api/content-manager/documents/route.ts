@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findDocuments, createDocument, getContentTypeByPlural } from "@/lib/document-service";
+import { findDocuments, createDocument, getContentTypeByPlural, UniqueConstraintError } from "@/lib/document-service";
 import { parseContentQuery } from "@/lib/parse-query";
 import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 import { contentTypeAction } from "@/lib/permissions";
@@ -49,7 +49,14 @@ export async function POST(req: NextRequest) {
       : typeof publishedAtRaw === "string" && publishedAtRaw.trim() !== ""
         ? new Date(publishedAtRaw)
         : undefined;
-  const result = await createDocument(pluralId, data ?? {}, { publishedAt });
-  if (!result) return NextResponse.json({ error: "Create failed" }, { status: 400 });
-  return NextResponse.json(result);
+  try {
+    const result = await createDocument(pluralId, data ?? {}, { publishedAt });
+    if (!result) return NextResponse.json({ error: "Create failed" }, { status: 400 });
+    return NextResponse.json(result);
+  } catch (e) {
+    if (e instanceof UniqueConstraintError) {
+      return NextResponse.json({ error: e.message, field: e.field }, { status: 400 });
+    }
+    throw e;
+  }
 }

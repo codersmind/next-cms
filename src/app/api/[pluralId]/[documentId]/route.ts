@@ -5,6 +5,7 @@ import {
   deleteDocument,
   isReservedApiId,
   getContentTypeByPlural,
+  UniqueConstraintError,
 } from "@/lib/document-service";
 import { parseContentQuery } from "@/lib/parse-query";
 
@@ -47,11 +48,18 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
   const data = body.data ?? body;
-  const result = await updateDocument(pluralId, documentId, data as Record<string, unknown>);
-  if (!result) {
-    return NextResponse.json({ error: "Document not found or update failed" }, { status: 404 });
+  try {
+    const result = await updateDocument(pluralId, documentId, data as Record<string, unknown>);
+    if (!result) {
+      return NextResponse.json({ error: "Document not found or update failed" }, { status: 404 });
+    }
+    return NextResponse.json(result);
+  } catch (e) {
+    if (e instanceof UniqueConstraintError) {
+      return NextResponse.json({ error: e.message, field: e.field }, { status: 400 });
+    }
+    throw e;
   }
-  return NextResponse.json(result);
 }
 
 export async function DELETE(
