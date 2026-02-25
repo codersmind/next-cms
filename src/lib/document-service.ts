@@ -33,7 +33,7 @@ const IN_MEMORY_CAP = 2000;
 
 function isSortByDbColumn(sort?: string[]): boolean {
   if (!sort?.length) return true;
-  const dbColumns = new Set(["createdAt", "updatedAt", "id", "documentId"]);
+  const dbColumns = new Set(["createdAt", "updatedAt", "publishedAt", "id", "documentId"]);
   return sort.every((s) => dbColumns.has(s.split(":")[0]));
 }
 
@@ -47,6 +47,7 @@ export async function findDocuments(
     populate?: string | string[] | Record<string, unknown>;
     fields?: string[];
     publicationState?: "live" | "preview";
+    status?: "draft" | "published" | "scheduled";
     search?: string;
     searchField?: string;
   } = {}
@@ -54,11 +55,18 @@ export async function findDocuments(
   const contentType = await getContentTypeByPlural(pluralId);
   if (!contentType) return null;
 
-  const { page = 1, pageSize = 25, publicationState = "live", populate, fields, search, searchField } = options;
+  const { page = 1, pageSize = 25, publicationState = "live", status, populate, fields, search, searchField } = options;
 
   const where: Record<string, unknown> = { contentTypeId: contentType.id };
-  if (contentType.draftPublish && publicationState === "live") {
-    where.publishedAt = { not: null };
+  // Live (public): only documents published on or before now ("that day it's active")
+  if (publicationState === "live") {
+    where.publishedAt = { not: null, lte: new Date() };
+  }
+  // Preview (admin) status filter: draft | published | scheduled
+  if (publicationState === "preview" && status) {
+    if (status === "draft") where.publishedAt = null;
+    else if (status === "published") where.publishedAt = { not: null, lte: new Date() };
+    else if (status === "scheduled") where.publishedAt = { gt: new Date() };
   }
 
   const attributes = parseAttributes(contentType.attributes);
@@ -161,7 +169,7 @@ function applySearch(
 }
 
 function sortDocuments(
-  documents: { data: string; documentId: string; createdAt: Date; updatedAt: Date }[],
+  documents: { data: string; documentId: string; createdAt: Date; updatedAt: Date; publishedAt: Date | null }[],
   sort: string[],
   attributes: Attribute[]
 ): typeof documents {
@@ -180,6 +188,9 @@ function sortDocuments(
       } else if (field === "updatedAt") {
         aVal = a.updatedAt.getTime();
         bVal = b.updatedAt.getTime();
+      } else if (field === "publishedAt") {
+        aVal = a.publishedAt?.getTime() ?? 0;
+        bVal = b.publishedAt?.getTime() ?? 0;
       } else if (field === "documentId") {
         aVal = a.documentId;
         bVal = b.documentId;
@@ -200,15 +211,16 @@ function sortDocuments(
   });
 }
 
-const DOC_LEVEL_FIELDS = new Set(["documentId", "createdAt", "updatedAt"]);
+const DOC_LEVEL_FIELDS = new Set(["documentId", "createdAt", "updatedAt", "publishedAt"]);
 
 function getFieldValue(
-  doc: { data: string; documentId: string; createdAt: Date; updatedAt: Date },
+  doc: { data: string; documentId: string; createdAt: Date; updatedAt: Date; publishedAt: Date | null },
   key: string
 ): unknown {
   if (key === "documentId") return doc.documentId;
   if (key === "createdAt") return doc.createdAt;
   if (key === "updatedAt") return doc.updatedAt;
+  if (key === "publishedAt") return doc.publishedAt;
   const data = JSON.parse(doc.data) as Record<string, unknown>;
   return data[key];
 }
@@ -356,11 +368,7 @@ export async function findOneDocument(
   if (!contentType) return null;
 
   const doc = await prisma.document.findFirst({
-    where: {
-      documentId,
-      contentTypeId: contentType.id,
-      ...(contentType.draftPublish ? { publishedAt: { not: null } } : {}),
-    },
+    where: { documentId, contentTypeId: contentType.id },
     include: { contentType: true },
   });
   if (!doc) return null;
@@ -373,7 +381,7 @@ export async function findOneDocument(
 export async function createDocument(
   pluralId: string,
   body: Record<string, unknown>,
-  options: { locale?: string; publish?: boolean } = {}
+  options: { locale?: string; publishedAt?: Date | string | null } = {}
 ) {
   const contentType = await getContentTypeByPlural(pluralId);
   if (!contentType) return null;
@@ -386,8 +394,13 @@ export async function createDocument(
   const { data: cleanData, relationFields } = extractRelations(attributes, body);
   const documentId = generateDocumentId();
 
+  // Default draft; optional publishedAt: when set, content is active on that day
   const publishedAt =
-    contentType.draftPublish && options.publish !== false ? new Date() : options.publish ? new Date() : null;
+    options.publishedAt != null
+      ? options.publishedAt instanceof Date
+        ? options.publishedAt
+        : new Date(options.publishedAt)
+      : null;
 
   const doc = await prisma.document.create({
     data: {
@@ -409,7 +422,7 @@ export async function updateDocument(
   pluralId: string,
   documentId: string,
   body: Record<string, unknown>,
-  options: { publish?: boolean } = {}
+  options: { publishedAt?: Date | string | null } = {}
 ) {
   const contentType = await getContentTypeByPlural(pluralId);
   if (!contentType) return null;
@@ -425,9 +438,10 @@ export async function updateDocument(
   const currentData = JSON.parse(doc.data) as Record<string, unknown>;
   const mergedData = { ...currentData, ...cleanData };
 
-  let publishedAt = doc.publishedAt;
-  if (contentType.draftPublish && options.publish === true) publishedAt = new Date();
-  if (contentType.draftPublish && options.publish === false) publishedAt = null;
+  let publishedAt: Date | null = doc.publishedAt;
+  if (options.publishedAt !== undefined) {
+    publishedAt = options.publishedAt == null ? null : options.publishedAt instanceof Date ? options.publishedAt : new Date(options.publishedAt);
+  }
 
   const updated = await prisma.document.update({
     where: { id: doc.id },
@@ -542,7 +556,7 @@ async function formatDocument(
     updatedAt: doc.updatedAt.toISOString(),
     locale: doc.locale,
   };
-  if (contentType.draftPublish) out.publishedAt = doc.publishedAt?.toISOString() ?? null;
+  out.publishedAt = doc.publishedAt?.toISOString() ?? null;
 
   const doPopulate = populate === "*" || (Array.isArray(populate) && populate.length > 0) || (typeof populate === "object" && Object.keys(populate).length > 0);
 

@@ -51,6 +51,7 @@ export default function ContentManagerListPage() {
   >([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<"" | "draft" | "published" | "scheduled">("");
   const columnPanelRef = useRef<HTMLDivElement>(null);
 
   const { data: contentTypes, isLoading: isLoadingTypes } = useGetContentTypesQuery();
@@ -65,7 +66,7 @@ export default function ContentManagerListPage() {
     )?.name ?? "documentId";
 
   const availableColumnIds = useMemo(() => {
-    const system = ["documentId", "createdAt", "updatedAt"] as const;
+    const system = ["status", "documentId", "publishedAt", "createdAt", "updatedAt"] as const;
     const attrNames = attributes.map((a) => a.name);
     const withTitle = [titleField, ...attrNames.filter((n) => n !== titleField)];
     const seen = new Set<string>();
@@ -105,7 +106,7 @@ export default function ContentManagerListPage() {
     } catch {
       // ignore
     }
-    setVisibleColumns([titleField, "documentId", "createdAt"]);
+    setVisibleColumns([titleField, "documentId", "status", "createdAt"]);
   }, [pluralId, availableColumnIds.join(","), titleField]);
 
   useEffect(() => {
@@ -159,7 +160,7 @@ export default function ContentManagerListPage() {
   }, [attributes]);
 
   const sortableFields = useMemo(
-    () => [titleField, "documentId", "createdAt", "updatedAt"],
+    () => [titleField, "documentId", "publishedAt", "createdAt", "updatedAt"],
     [titleField]
   );
 
@@ -179,6 +180,7 @@ export default function ContentManagerListPage() {
     search: searchSent || undefined,
     searchField: searchField || undefined,
     filters: apiFilters,
+    status: statusFilter || undefined,
   });
 
   const [deleteDocument] = useDeleteDocumentMutation();
@@ -352,6 +354,21 @@ export default function ContentManagerListPage() {
             Search
           </button>
         </form>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value as "" | "draft" | "published" | "scheduled");
+            setPage(1);
+          }}
+          className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          title="Publication status"
+        >
+          <option value="">All status</option>
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+          <option value="scheduled">Scheduled</option>
+        </select>
 
         <label className="flex items-center gap-2 text-sm text-zinc-500">
           <span>Per page</span>
@@ -532,16 +549,21 @@ export default function ContentManagerListPage() {
                     {columnsToShow.map((colId) => {
                       const val = doc[colId];
                       const isTitle = colId === titleField;
-                      const cellContent =
-                        colId === "documentId"
-                          ? docId
-                          : colId === "createdAt" || colId === "updatedAt"
-                            ? val
-                              ? new Date(val as string).toLocaleString()
-                              : "—"
-                            : val != null && val !== ""
-                              ? String(val)
-                              : "—";
+                      const publishedAt = doc.publishedAt as string | null | undefined;
+                      const isStatus = colId === "status";
+                      const isPublishedAt = colId === "publishedAt";
+                      let cellContent: string;
+                      if (isStatus) {
+                        if (publishedAt == null || publishedAt === "") cellContent = "Draft";
+                        else if (new Date(publishedAt).getTime() <= Date.now()) cellContent = "Published";
+                        else cellContent = "Scheduled";
+                      } else if (colId === "documentId") {
+                        cellContent = docId;
+                      } else if (colId === "createdAt" || colId === "updatedAt" || isPublishedAt) {
+                        cellContent = val ? new Date(val as string).toLocaleString() : "—";
+                      } else {
+                        cellContent = val != null && val !== "" ? String(val) : "—";
+                      }
                       return (
                         <td key={colId} className="px-6 py-3 text-sm text-zinc-400">
                           {isTitle ? (
@@ -551,12 +573,22 @@ export default function ContentManagerListPage() {
                             >
                               {String(cellContent)}
                             </Link>
+                          ) : isStatus ? (
+                            <span
+                              className={
+                                cellContent === "Draft"
+                                  ? "text-zinc-500"
+                                  : cellContent === "Published"
+                                    ? "text-emerald-400"
+                                    : "text-amber-400"
+                              }
+                            >
+                              {cellContent}
+                            </span>
+                          ) : colId === "documentId" ? (
+                            <span className="font-mono text-zinc-500">{cellContent}</span>
                           ) : (
-                            colId === "documentId" ? (
-                              <span className="font-mono text-zinc-500">{cellContent}</span>
-                            ) : (
-                              cellContent
-                            )
+                            cellContent
                           )}
                         </td>
                       );

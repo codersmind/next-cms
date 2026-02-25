@@ -57,6 +57,7 @@ export function parseContentQuery(searchParams: string | Record<string, string |
   const fieldsList = typeof fields === "string" ? (fields === "*" ? undefined : fields.split(",")) : undefined;
 
   const publicationState = (params.publicationState as "live" | "preview") || "live";
+  const status = (params.status as "draft" | "published" | "scheduled") || undefined;
   const search = (params._q ?? params.search ?? params.q) as string | undefined;
   const searchTrimmed = typeof search === "string" ? search.trim() || undefined : undefined;
   const searchField = (params.searchField ?? params.searchInField) as string | undefined;
@@ -70,6 +71,7 @@ export function parseContentQuery(searchParams: string | Record<string, string |
     populate,
     fields: fieldsList,
     publicationState,
+    status: status && ["draft", "published", "scheduled"].includes(status) ? status : undefined,
     search: searchTrimmed,
     searchField: searchFieldTrimmed,
   };

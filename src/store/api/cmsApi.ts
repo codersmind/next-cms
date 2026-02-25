@@ -226,9 +226,10 @@ export const cmsApi = createApi({
         search?: string;
         searchField?: string;
         filters?: Record<string, unknown>;
+        status?: "draft" | "published" | "scheduled";
       }
     >({
-      query: ({ contentType, page, pageSize, sort, search, searchField, filters }) => {
+      query: ({ contentType, page, pageSize, sort, search, searchField, filters, status }) => {
         const params = new URLSearchParams();
         params.set("contentType", contentType);
         if (page != null) params.set("pagination[page]", String(page));
@@ -241,6 +242,7 @@ export const cmsApi = createApi({
         if (filters != null && Object.keys(filters).length > 0) {
           params.set("filters", JSON.stringify(filters));
         }
+        if (status) params.set("status", status);
         return { url: `/api/content-manager/documents?${params.toString()}` };
       },
       providesTags: (_result, _err, { contentType }) => [{ type: "Documents", id: contentType }],
@@ -259,24 +261,24 @@ export const cmsApi = createApi({
 
     createDocument: builder.mutation<
       DocumentResponse,
-      { contentType: string; data: Record<string, unknown> }
+      { contentType: string; data: Record<string, unknown>; publishedAt?: string | null }
     >({
-      query: ({ contentType, data }) => ({
+      query: ({ contentType, data, publishedAt }) => ({
         url: "/api/content-manager/documents",
         method: "POST",
-        body: { contentType, data },
+        body: { contentType, data, ...(publishedAt !== undefined && { publishedAt }) },
       }),
       invalidatesTags: (_result, _err, { contentType }) => [{ type: "Documents", id: contentType }],
     }),
 
     updateDocument: builder.mutation<
       DocumentResponse,
-      { contentType: string; documentId: string; data: Record<string, unknown> }
+      { contentType: string; documentId: string; data: Record<string, unknown>; publishedAt?: string | null }
     >({
-      query: ({ contentType, documentId, data }) => ({
+      query: ({ contentType, documentId, data, publishedAt }) => ({
         url: `/api/content-manager/documents/${documentId}?contentType=${encodeURIComponent(contentType)}`,
         method: "PUT",
-        body: { data },
+        body: { data, ...(publishedAt !== undefined && { publishedAt }) },
       }),
       invalidatesTags: (_result, _err, { contentType, documentId }) => [
         { type: "Documents", id: contentType },

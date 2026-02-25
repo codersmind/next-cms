@@ -46,8 +46,8 @@ export default function NewDocumentPage() {
   }
 
   const attributes = (contentType.attributes ?? []) as ContentTypeAttribute[];
-  const initialValues: Record<string, unknown> = {};
-  const shape: Record<string, Yup.AnySchema> = {};
+  const initialValues: Record<string, unknown> = { published: false, publishedAt: "" };
+  const shape: Record<string, Yup.AnySchema> = { published: Yup.boolean(), publishedAt: Yup.string() };
   for (const attr of attributes) {
     switch (attr.type) {
       case "text":
@@ -104,6 +104,13 @@ export default function NewDocumentPage() {
 
   async function onSubmit(values: Record<string, unknown>) {
     const data: Record<string, unknown> = {};
+    const isPublished = !!values.published;
+    const publishedAtRaw = values.publishedAt;
+    const publishedAt = !isPublished
+      ? null
+      : typeof publishedAtRaw === "string" && publishedAtRaw.trim() !== ""
+        ? publishedAtRaw.trim()
+        : new Date().toISOString().slice(0, 16);
     for (const attr of attributes) {
       const v = values[attr.name];
       if (v === "" || v === undefined) continue;
@@ -117,7 +124,7 @@ export default function NewDocumentPage() {
       } else data[attr.name] = v;
     }
     try {
-      const res = await createDocument({ contentType: pluralId, data }).unwrap();
+      const res = await createDocument({ contentType: pluralId, data, publishedAt }).unwrap();
       const doc = res.data as { documentId?: string };
       if (doc?.documentId) {
         router.push(`/admin/content-manager/${pluralId}/${doc.documentId}`);
@@ -163,26 +170,46 @@ export default function NewDocumentPage() {
             }
           }, [slugTarget?.name, slugSource?.name, values[slugSource?.name ?? ""], setFieldValue]);
           return (
-        <Form className="mt-6 space-y-6">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-4">
-            {attributes.map((attr) => (
-              <FieldByType key={attr.name} attr={attr} contentTypes={contentTypes ?? []} components={components ?? []} />
-            ))}
+        <Form className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="min-w-0 flex-1 space-y-6">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-4">
+              {attributes.map((attr) => (
+                <FieldByType key={attr.name} attr={attr} contentTypes={contentTypes ?? []} components={components ?? []} />
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-500 disabled:opacity-50"
+              >
+                {isLoading ? "Creating…" : "Create"}
+              </button>
+              <Link
+                href={`/admin/content-manager/${pluralId}`}
+                className="px-5 py-2.5 rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800"
+              >
+                Cancel
+              </Link>
+            </div>
           </div>
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-5 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-500 disabled:opacity-50"
-            >
-              {isLoading ? "Creating…" : "Create"}
-            </button>
-            <Link
-              href={`/admin/content-manager/${pluralId}`}
-              className="px-5 py-2.5 rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800"
-            >
-              Cancel
-            </Link>
+          <div className="shrink-0 w-full lg:w-72 lg:sticky lg:top-6">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-zinc-400">Publication</h3>
+              <FormikSwitch name="published" label="Published" />
+              {values.published ? (
+                <>
+                  <FormField
+                    name="publishedAt"
+                    label="Published at (optional)"
+                    type="datetime-local"
+                  />
+                  <p className="text-xs text-zinc-500">
+                    Leave default for now, or set a future date to schedule.
+                  </p>
+                </>
+              ) : null}
+            </div>
           </div>
         </Form>
           );

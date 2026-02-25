@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const result = await findDocuments(pluralId, {
     ...query,
     publicationState: "preview",
+    status: query.status,
   });
   if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(result);
@@ -25,17 +26,23 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  let body: { contentType: string; data: Record<string, unknown> };
+  let body: { contentType: string; data?: Record<string, unknown>; publishedAt?: string | null };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const { contentType: pluralId, data } = body;
+  const { contentType: pluralId, data, publishedAt: publishedAtRaw } = body;
   if (!pluralId) return NextResponse.json({ error: "contentType required" }, { status: 400 });
   const allowed = await canAccess(user, contentTypeAction(pluralId, "create"));
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const result = await createDocument(pluralId, data ?? {});
+  const publishedAt =
+    publishedAtRaw === null
+      ? null
+      : typeof publishedAtRaw === "string" && publishedAtRaw.trim() !== ""
+        ? new Date(publishedAtRaw)
+        : undefined;
+  const result = await createDocument(pluralId, data ?? {}, { publishedAt });
   if (!result) return NextResponse.json({ error: "Create failed" }, { status: 400 });
   return NextResponse.json(result);
 }

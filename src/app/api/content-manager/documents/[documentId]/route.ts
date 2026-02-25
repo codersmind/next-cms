@@ -35,13 +35,23 @@ export async function PUT(
   const allowed = await canAccess(user, contentTypeAction(pluralId, "update"));
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { documentId } = await params;
-  let body: { data: Record<string, unknown> };
+  let body: { data?: Record<string, unknown>; publishedAt?: string | null };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const result = await updateDocument(pluralId, documentId, body.data ?? {});
+  const publishedAtOpt =
+    body.publishedAt === undefined
+      ? undefined
+      : body.publishedAt === null
+        ? null
+        : typeof body.publishedAt === "string" && body.publishedAt.trim() !== ""
+          ? new Date(body.publishedAt)
+          : undefined;
+  const result = await updateDocument(pluralId, documentId, body.data ?? {}, {
+    ...(publishedAtOpt !== undefined && { publishedAt: publishedAtOpt }),
+  });
   if (!result) return NextResponse.json({ error: "Update failed" }, { status: 404 });
   return NextResponse.json(result);
 }
