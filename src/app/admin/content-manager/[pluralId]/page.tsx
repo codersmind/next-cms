@@ -14,7 +14,8 @@ import {
   ChevronRight,
   Filter,
   X,
-  Columns2,
+  Settings2,
+  GripVertical,
 } from "lucide-react";
 import { useGetContentTypesQuery, useGetDocumentsQuery, useDeleteDocumentMutation } from "@/store/api/cmsApi";
 import {
@@ -53,6 +54,7 @@ export default function ContentManagerListPage() {
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<"" | "draft" | "published" | "scheduled">("");
   const columnPanelRef = useRef<HTMLDivElement>(null);
+  const loadedColumnsForPluralId = useRef<string | null>(null);
 
   const { data: contentTypes, isLoading: isLoadingTypes } = useGetContentTypesQuery();
 
@@ -86,8 +88,10 @@ export default function ContentManagerListPage() {
     return out;
   }, [titleField, attributes]);
 
+  // Load column settings only when content type is ready (so availableColumnIds includes all fields e.g. title)
   useEffect(() => {
-    if (!pluralId || availableColumnIds.length === 0) return;
+    if (!pluralId || !contentType || availableColumnIds.length === 0) return;
+    if (loadedColumnsForPluralId.current === pluralId) return;
     const key = `${COLUMNS_STORAGE_KEY}-${pluralId}`;
     try {
       const raw = localStorage.getItem(key);
@@ -99,18 +103,22 @@ export default function ContentManagerListPage() {
           );
           if (valid.length > 0) {
             setVisibleColumns(valid);
+            loadedColumnsForPluralId.current = pluralId;
             return;
           }
         }
       }
     } catch {
-      // ignore
+      // invalid or missing: use default below
     }
     setVisibleColumns([titleField, "documentId", "status", "createdAt"]);
-  }, [pluralId, availableColumnIds.join(","), titleField]);
+    loadedColumnsForPluralId.current = pluralId;
+  }, [pluralId, contentType, availableColumnIds, titleField]);
 
+  // Persist column settings after we have loaded for this content type (persist any length including 1)
   useEffect(() => {
-    if (!pluralId || visibleColumns.length === 0) return;
+    if (!pluralId) return;
+    if (loadedColumnsForPluralId.current !== pluralId) return;
     const key = `${COLUMNS_STORAGE_KEY}-${pluralId}`;
     try {
       localStorage.setItem(key, JSON.stringify(visibleColumns));
@@ -125,6 +133,43 @@ export default function ContentManagerListPage() {
       return prev.filter((c) => c !== columnId);
     });
   }, []);
+
+  const [draggedColIndex, setDraggedColIndex] = useState<number | null>(null);
+
+  const moveVisibleColumn = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setVisibleColumns((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, removed);
+      return next;
+    });
+  }, []);
+
+  const handleColumnDragStart = useCallback((index: number) => {
+    setDraggedColIndex(index);
+  }, []);
+
+  const handleColumnDragEnd = useCallback(() => {
+    setDraggedColIndex(null);
+  }, []);
+
+  const handleColumnDrop = useCallback(
+    (e: React.DragEvent, dropIndex: number) => {
+      e.preventDefault();
+      const dragIndex = draggedColIndex ?? parseInt(e.dataTransfer.getData("text/plain"), 10);
+      if (!Number.isNaN(dragIndex) && dragIndex !== dropIndex) {
+        moveVisibleColumn(dragIndex, dropIndex);
+      }
+      setDraggedColIndex(null);
+    },
+    [draggedColIndex, moveVisibleColumn]
+  );
+
+  const hiddenColumnIds = useMemo(
+    () => availableColumnIds.filter((id) => !visibleColumns.includes(id)),
+    [availableColumnIds, visibleColumns]
+  );
 
   useEffect(() => {
     if (!showColumnPanel) return;
@@ -392,31 +437,80 @@ export default function ContentManagerListPage() {
           <button
             type="button"
             onClick={() => setShowColumnPanel((s) => !s)}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800 text-sm font-medium"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-white text-sm font-medium"
+            title="Column settings"
+            aria-label="Column settings"
           >
-            <Columns2 className="w-4 h-4" />
-            Columns
+            <Settings2 className="w-4 h-4" />
           </button>
           {showColumnPanel && (
-            <div className="absolute left-0 top-full mt-1 z-20 min-w-[220px] py-2 rounded-xl border border-zinc-800 bg-zinc-900 shadow-xl">
-              <div className="px-3 py-1.5 text-xs font-semibold text-zinc-500 uppercase border-b border-zinc-800">
-                Show / hide columns
+            <div className="absolute right-0 top-full mt-1 z-20 w-72 rounded-xl border border-zinc-800 bg-zinc-900 shadow-xl overflow-hidden">
+              <div className="px-3 py-2.5 text-xs font-semibold text-zinc-500 uppercase border-b border-zinc-800 bg-zinc-900/80">
+                Column position & visibility
               </div>
-              <div className="max-h-64 overflow-y-auto px-1 py-1">
-                {availableColumnIds.map((colId) => (
-                  <label
-                    key={colId}
-                    className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-zinc-800/50 cursor-pointer text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={columnsToShow.includes(colId)}
-                      onChange={(e) => setColumnVisible(colId, e.target.checked)}
-                      className="rounded border-zinc-600 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-zinc-300">{colId}</span>
-                  </label>
-                ))}
+              <div className="max-h-80 overflow-y-auto">
+                <div className="px-2 py-2">
+                  <p className="text-xs text-zinc-500 mb-2">Visible (drag to reorder)</p>
+                  {columnsToShow.length === 0 ? (
+                    <p className="text-xs text-zinc-500 py-2">No visible columns. Add some below.</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {columnsToShow.map((colId, index) => (
+                        <div
+                          key={colId}
+                          draggable
+                          onDragStart={(e) => {
+                            handleColumnDragStart(index);
+                            e.dataTransfer.setData("text/plain", String(index));
+                            e.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                          }}
+                          onDragEnd={() => handleColumnDragEnd()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            handleColumnDrop(e, index);
+                          }}
+                          className={`flex items-center gap-2 px-2 py-2 rounded-lg cursor-grab active:cursor-grabbing bg-zinc-800/50 hover:bg-zinc-800 ${draggedColIndex === index ? "opacity-50" : ""}`}
+                        >
+                          <GripVertical className="w-4 h-4 shrink-0 text-zinc-500" aria-hidden />
+                          <input
+                            type="checkbox"
+                            checked
+                            onChange={() => setColumnVisible(colId, false)}
+                            className="rounded border-zinc-600 text-indigo-600 focus:ring-indigo-500 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span className="text-sm text-zinc-300 truncate">{colId}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {hiddenColumnIds.length > 0 && (
+                  <div className="px-2 py-2 border-t border-zinc-800">
+                    <p className="text-xs text-zinc-500 mb-2">Hidden (check to show)</p>
+                    <div className="space-y-0.5">
+                      {hiddenColumnIds.map((colId) => (
+                        <label
+                          key={colId}
+                          className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-zinc-800/50 cursor-pointer"
+                        >
+                          <span className="w-4 shrink-0" aria-hidden />
+                          <input
+                            type="checkbox"
+                            checked={false}
+                            onChange={() => setColumnVisible(colId, true)}
+                            className="rounded border-zinc-600 text-indigo-600 focus:ring-indigo-500 shrink-0"
+                          />
+                          <span className="text-sm text-zinc-300 truncate">{colId}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
