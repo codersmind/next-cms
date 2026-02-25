@@ -68,10 +68,39 @@ export interface ContentTypeTemplate {
   schema: { kind: string; attributes: ContentTypeAttribute[] };
 }
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  username: string | null;
+  firstname: string | null;
+  lastname: string | null;
+  blocked: boolean;
+  roleId: string | null;
+  roleName?: string | null;
+  createdAt?: string;
+}
+
+export interface AdminRole {
+  id: string;
+  name: string;
+  description: string | null;
+  type: string | null;
+  usersCount?: number;
+  permissionsCount?: number;
+}
+
+export interface AdminPermission {
+  id: string;
+  action: string;
+  roleId: string;
+  role?: { id: string; name: string };
+  enabled: boolean;
+}
+
 export const cmsApi = createApi({
   reducerPath: "cmsApi",
   baseQuery,
-  tagTypes: ["ContentTypes", "Components", "Documents", "Media", "MediaFolders", "Templates"],
+  tagTypes: ["ContentTypes", "Components", "Documents", "Media", "MediaFolders", "Templates", "Users", "Roles", "Permissions"],
   endpoints: (builder) => ({
     login: builder.mutation<LoginResponse, LoginRequest>({
       query: (body) => ({
@@ -373,6 +402,77 @@ export const cmsApi = createApi({
             ]
           : [{ type: "Templates", id: "LIST" }],
     }),
+
+    getAdminUsers: builder.query<
+      { data: AdminUser[]; meta: { pagination: { page: number; pageSize: number; pageCount: number; total: number } } },
+      { page?: number; pageSize?: number; search?: string; sort?: string; roleId?: string; blocked?: boolean }
+    >({
+      query: (params) => {
+        const sp = new URLSearchParams();
+        if (params.page != null) sp.set("page", String(params.page));
+        if (params.pageSize != null) sp.set("pageSize", String(params.pageSize));
+        if (params.search) sp.set("search", params.search);
+        if (params.sort) sp.set("sort", params.sort);
+        if (params.roleId) sp.set("roleId", params.roleId);
+        if (params.blocked !== undefined) sp.set("blocked", String(params.blocked));
+        return { url: `/api/admin/users?${sp.toString()}` };
+      },
+      providesTags: (result) =>
+        result
+          ? [...result.data.map(({ id }) => ({ type: "Users" as const, id })), { type: "Users", id: "LIST" }]
+          : [{ type: "Users", id: "LIST" }],
+    }),
+    createAdminUser: builder.mutation<AdminUser, { email: string; username?: string; password: string; firstname?: string; lastname?: string; roleId?: string | null }>({
+      query: (body) => ({ url: "/api/admin/users", method: "POST", body }),
+      invalidatesTags: [{ type: "Users", id: "LIST" }],
+    }),
+    updateAdminUser: builder.mutation<
+      AdminUser,
+      { id: string; email?: string; username?: string; password?: string; firstname?: string; lastname?: string; blocked?: boolean; roleId?: string | null }
+    >({
+      query: ({ id, ...body }) => ({ url: `/api/admin/users/${id}`, method: "PATCH", body }),
+      invalidatesTags: (_r, _e, { id }) => [{ type: "Users", id }, { type: "Users", id: "LIST" }],
+    }),
+    deleteAdminUser: builder.mutation<void, string>({
+      query: (id) => ({ url: `/api/admin/users/${id}`, method: "DELETE" }),
+      invalidatesTags: (_r, _e, id) => [{ type: "Users", id }, { type: "Users", id: "LIST" }],
+    }),
+
+    getAdminRoles: builder.query<AdminRole[], void>({
+      query: () => "/api/admin/roles",
+      providesTags: (result) =>
+        result ? [...result.map(({ id }) => ({ type: "Roles" as const, id })), { type: "Roles", id: "LIST" }] : [{ type: "Roles", id: "LIST" }],
+    }),
+    createAdminRole: builder.mutation<AdminRole, { name: string; description?: string; type?: string }>({
+      query: (body) => ({ url: "/api/admin/roles", method: "POST", body }),
+      invalidatesTags: [{ type: "Roles", id: "LIST" }],
+    }),
+    updateAdminRole: builder.mutation<AdminRole, { id: string; name?: string; description?: string; type?: string }>({
+      query: ({ id, ...body }) => ({ url: `/api/admin/roles/${id}`, method: "PATCH", body }),
+      invalidatesTags: (_r, _e, { id }) => [{ type: "Roles", id }, { type: "Roles", id: "LIST" }],
+    }),
+    deleteAdminRole: builder.mutation<void, string>({
+      query: (id) => ({ url: `/api/admin/roles/${id}`, method: "DELETE" }),
+      invalidatesTags: (_r, _e, id) => [{ type: "Roles", id }, { type: "Roles", id: "LIST" }],
+    }),
+
+    getAdminPermissions: builder.query<AdminPermission[], string | void>({
+      query: (roleId) => (roleId ? `/api/admin/permissions?roleId=${encodeURIComponent(roleId)}` : "/api/admin/permissions"),
+      providesTags: (result) =>
+        result ? [...result.map(({ id }) => ({ type: "Permissions" as const, id })), { type: "Permissions", id: "LIST" }] : [{ type: "Permissions", id: "LIST" }],
+    }),
+    createAdminPermission: builder.mutation<AdminPermission, { roleId: string; action: string; enabled?: boolean }>({
+      query: (body) => ({ url: "/api/admin/permissions", method: "POST", body }),
+      invalidatesTags: [{ type: "Permissions", id: "LIST" }],
+    }),
+    updateAdminPermission: builder.mutation<AdminPermission, { id: string; enabled?: boolean }>({
+      query: ({ id, ...body }) => ({ url: `/api/admin/permissions/${id}`, method: "PATCH", body }),
+      invalidatesTags: (_r, _e, { id }) => [{ type: "Permissions", id }, { type: "Permissions", id: "LIST" }],
+    }),
+    deleteAdminPermission: builder.mutation<void, string>({
+      query: (id) => ({ url: `/api/admin/permissions/${id}`, method: "DELETE" }),
+      invalidatesTags: (_r, _e, id) => [{ type: "Permissions", id }, { type: "Permissions", id: "LIST" }],
+    }),
   }),
 });
 
@@ -402,4 +502,16 @@ export const {
   useDeleteMediaMutation,
   useMoveMediaMutation,
   useGetTemplatesQuery,
+  useGetAdminUsersQuery,
+  useCreateAdminUserMutation,
+  useUpdateAdminUserMutation,
+  useDeleteAdminUserMutation,
+  useGetAdminRolesQuery,
+  useCreateAdminRoleMutation,
+  useUpdateAdminRoleMutation,
+  useDeleteAdminRoleMutation,
+  useGetAdminPermissionsQuery,
+  useCreateAdminPermissionMutation,
+  useUpdateAdminPermissionMutation,
+  useDeleteAdminPermissionMutation,
 } = cmsApi;

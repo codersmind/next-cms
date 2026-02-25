@@ -8,6 +8,9 @@ import {
   Boxes,
   FileText,
   Image,
+  Users,
+  Shield,
+  KeyRound,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -19,6 +22,7 @@ const navItems = [
   { href: "/admin/content-manager", label: "Content Manager", icon: FileText, hasSubmenu: true },
   { href: "/admin/content-type-builder", label: "Content-Type Builder", icon: Boxes },
   { href: "/admin/media-library", label: "Media Library", icon: Image },
+  { href: "/admin/access", label: "Access", icon: Users, hasSubmenu: true },
 ];
 
 export default function AdminLayout({
@@ -28,11 +32,16 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const isContentManager = pathname.startsWith("/admin/content-manager");
+  const isAccess = pathname.startsWith("/admin/users") || pathname.startsWith("/admin/roles") || pathname.startsWith("/admin/permissions");
   const [contentManagerOpen, setContentManagerOpen] = useState(isContentManager);
+  const [accessOpen, setAccessOpen] = useState(isAccess);
 
   useEffect(() => {
     if (isContentManager) setContentManagerOpen(true);
   }, [isContentManager]);
+  useEffect(() => {
+    if (isAccess) setAccessOpen(true);
+  }, [isAccess]);
 
   const { data: contentTypes } = useGetContentTypesQuery();
 
@@ -54,6 +63,68 @@ export default function AdminLayout({
           <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
             {navItems.map((item) => {
               const hasSubmenu = "hasSubmenu" in item && item.hasSubmenu;
+              if (hasSubmenu && item.href === "/admin/access") {
+                const isActive = isAccess;
+                const Icon = item.icon;
+                return (
+                  <div key={item.href}>
+                    <button
+                      type="button"
+                      onClick={() => setAccessOpen((o) => !o)}
+                      className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-indigo-600/20 text-indigo-400"
+                          : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 shrink-0" />
+                      {item.label}
+                      {accessOpen ? (
+                        <ChevronDown className="w-4 h-4 ml-auto" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 ml-auto" />
+                      )}
+                    </button>
+                    {accessOpen && (
+                      <div className="mt-0.5 ml-4 pl-3 border-l border-zinc-800 space-y-0.5">
+                        <Link
+                          href="/admin/users"
+                          className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm ${
+                            pathname === "/admin/users"
+                              ? "text-indigo-400"
+                              : "text-zinc-500 hover:text-white"
+                          }`}
+                        >
+                          <Users className="w-4 h-4 shrink-0" />
+                          Users
+                        </Link>
+                        <Link
+                          href="/admin/roles"
+                          className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm ${
+                            pathname === "/admin/roles"
+                              ? "text-indigo-400"
+                              : "text-zinc-500 hover:text-white"
+                          }`}
+                        >
+                          <Shield className="w-4 h-4 shrink-0" />
+                          Roles
+                        </Link>
+                        <Link
+                          href="/admin/permissions"
+                          className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm ${
+                            pathname.startsWith("/admin/permissions")
+                              ? "text-indigo-400"
+                              : "text-zinc-500 hover:text-white"
+                          }`}
+                        >
+                          <KeyRound className="w-4 h-4 shrink-0" />
+                          Permissions
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               if (hasSubmenu && item.href === "/admin/content-manager") {
                 const isActive = isContentManager;
                 const Icon = item.icon;

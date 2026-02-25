@@ -45,3 +45,32 @@ export async function getUserFromRequest(authHeader: string | null): Promise<{ i
   if (!user || user.blocked) return null;
   return user;
 }
+
+export type UserWithRole = { id: string; email: string; roleId: string | null; role: { id: string; name: string } | null };
+
+/** Same as getUserFromRequest but includes role (id, name). Use when you need to check Super Admin or permissions. */
+export async function getUserWithRoleFromRequest(authHeader: string | null): Promise<UserWithRole | null> {
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  const token = authHeader.slice(7);
+  const payload = await verifyToken(token);
+  if (!payload) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true, email: true, roleId: true, blocked: true, role: { select: { id: true, name: true } } },
+  });
+  if (!user || user.blocked) return null;
+  return user;
+}
+
+export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
+
+/** Returns true if user has the given permission. Super Admin role has full access (all permissions). */
+export async function canAccess(user: UserWithRole | null, action: string): Promise<boolean> {
+  if (!user) return false;
+  if (user.role?.name === SUPER_ADMIN_ROLE_NAME) return true;
+  if (!user.roleId) return false;
+  const perm = await prisma.permission.findFirst({
+    where: { roleId: user.roleId, action, enabled: true },
+  });
+  return !!perm;
+}
