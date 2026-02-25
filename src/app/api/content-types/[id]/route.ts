@@ -31,6 +31,7 @@ export async function PUT(
     kind?: string;
     description?: string;
     draftPublish?: boolean;
+    defaultPublicationState?: string;
     i18n?: boolean;
     attributes?: unknown[];
   };
@@ -48,6 +49,7 @@ export async function PUT(
   if (body.kind != null) data.kind = body.kind;
   if (body.description != null) data.description = body.description;
   if (body.draftPublish != null) data.draftPublish = body.draftPublish;
+  if (body.defaultPublicationState != null) data.defaultPublicationState = body.defaultPublicationState;
   if (body.i18n != null) data.i18n = body.i18n;
   if (body.attributes != null) data.attributes = JSON.stringify(body.attributes);
   const updated = await prisma.contentType.update({

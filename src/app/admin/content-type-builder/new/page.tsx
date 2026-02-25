@@ -65,6 +65,7 @@ function getValidationSchema(kind: "collectionType" | "singleType") {
         ? Yup.string().required("API ID (plural) is required").matches(/^[a-z0-9-]+$/, "Use lowercase letters, numbers, hyphens only")
         : Yup.string().optional().matches(/^[a-z0-9-]*$/, "Use lowercase letters, numbers, hyphens only"),
     draftPublish: Yup.boolean(),
+    defaultPublicationState: Yup.string().oneOf(["draft", "published"]),
     attributes: Yup.array()
       .of(
         Yup.object({
@@ -104,6 +105,7 @@ export default function NewContentTypePage() {
     singularId: "",
     pluralId: kind === "collectionType" ? "" : "",
     draftPublish: false,
+    defaultPublicationState: "draft" as const,
     attributes: [{ ...emptyAttribute }],
   };
 
@@ -130,6 +132,7 @@ export default function NewContentTypePage() {
         pluralId: values.pluralId || values.singularId + "s",
         kind,
         draftPublish: values.draftPublish,
+        defaultPublicationState: values.defaultPublicationState as "draft" | "published",
         attributes,
       }).unwrap();
       toast.success("Content type created.");
@@ -206,6 +209,14 @@ export default function NewContentTypePage() {
                 API IDs are auto-generated from the display name. You can edit them.
               </p>
               <FormikSwitch name="draftPublish" label="Draft & Publish" />
+              <div>
+                <label className="block mb-1 text-sm text-zinc-400">Default when creating new entry</label>
+                <Field as="select" name="defaultPublicationState" className="mt-1 w-full max-w-xs px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </Field>
+                <p className="mt-1 text-xs text-zinc-500">New entries will start as draft or published based on this setting.</p>
+              </div>
             </div>
 
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">

@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     kind: "collectionType" | "singleType";
     description?: string;
     draftPublish?: boolean;
+    defaultPublicationState?: string;
     i18n?: boolean;
     attributes: unknown[];
   };
@@ -46,6 +47,10 @@ export async function POST(req: NextRequest) {
   if (existing) {
     return NextResponse.json({ error: "Content type with this API ID already exists" }, { status: 400 });
   }
+  const defaultPublicationState =
+    body.defaultPublicationState === "published" || body.defaultPublicationState === "draft"
+      ? body.defaultPublicationState
+      : "draft";
   const ct = await prisma.contentType.create({
     data: {
       name: body.name,
@@ -54,6 +59,7 @@ export async function POST(req: NextRequest) {
       kind: body.kind ?? "collectionType",
       description: body.description ?? null,
       draftPublish: body.draftPublish ?? false,
+      defaultPublicationState,
       i18n: body.i18n ?? false,
       attributes: JSON.stringify(body.attributes ?? []),
     },

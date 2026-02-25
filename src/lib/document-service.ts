@@ -394,13 +394,17 @@ export async function createDocument(
   const { data: cleanData, relationFields } = extractRelations(attributes, body);
   const documentId = generateDocumentId();
 
-  // Default draft; optional publishedAt: when set, content is active on that day
+  // Use explicit publishedAt from client, else content-type default (published vs draft)
   const publishedAt =
-    options.publishedAt != null
-      ? options.publishedAt instanceof Date
-        ? options.publishedAt
-        : new Date(options.publishedAt)
-      : null;
+    options.publishedAt !== undefined
+      ? options.publishedAt == null
+        ? null
+        : options.publishedAt instanceof Date
+          ? options.publishedAt
+          : new Date(options.publishedAt)
+      : contentType.defaultPublicationState === "published"
+        ? new Date()
+        : null;
 
   const doc = await prisma.document.create({
     data: {

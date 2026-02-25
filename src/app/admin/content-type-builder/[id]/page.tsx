@@ -64,6 +64,7 @@ function normalizeAttribute(attr: ContentTypeAttribute): ContentTypeAttribute & 
 const editSchema = Yup.object({
   name: Yup.string().required("Display name is required").trim(),
   draftPublish: Yup.boolean(),
+  defaultPublicationState: Yup.string().oneOf(["draft", "published"]),
   attributes: Yup.array()
     .of(
       Yup.object({
@@ -115,6 +116,7 @@ export default function EditContentTypePage() {
   const initialValues: EditValues = {
     name: contentType.name,
     draftPublish: contentType.draftPublish ?? false,
+    defaultPublicationState: contentType.defaultPublicationState === "published" ? "published" : "draft",
     attributes: (contentType.attributes ?? []).length
       ? (contentType.attributes ?? []).map(normalizeAttribute)
       : [emptyAttribute],
@@ -137,7 +139,7 @@ export default function EditContentTypePage() {
       return a;
     });
     try {
-      await updateContentType({ id, name: values.name, draftPublish: values.draftPublish, attributes }).unwrap();
+      await updateContentType({ id, name: values.name, draftPublish: values.draftPublish, defaultPublicationState: values.defaultPublicationState as "draft" | "published", attributes }).unwrap();
       toast.success("Content type saved.");
     } catch {
       toast.error("Failed to save content type.");
@@ -246,6 +248,14 @@ export default function EditContentTypePage() {
                 )}
               </div>
               <FormikSwitch name="draftPublish" label="Draft & Publish" />
+              <div>
+                <label className="block mb-1 text-sm text-zinc-400">Default when creating new entry</label>
+                <Field as="select" name="defaultPublicationState" className="mt-1 w-full max-w-xs px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </Field>
+                <p className="mt-1 text-xs text-zinc-500">New entries will start as draft or published based on this setting.</p>
+              </div>
             </div>
 
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">

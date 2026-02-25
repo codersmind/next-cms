@@ -13,17 +13,18 @@ datasource db {
 // ============ Content-Type Builder (Schema Registry) ============
 
 model ContentType {
-  id          String   @id @default(cuid())
-  name        String   // Display name e.g. "Article"
-  singularId  String   @unique // API ID singular e.g. "article"
-  pluralId    String   @unique // API ID plural e.g. "articles"
-  kind        String   // "collectionType" | "singleType"
-  description String?
-  draftPublish Boolean @default(false)
-  i18n        Boolean  @default(false)
-  attributes  String   // JSON: array of attribute definitions
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                     String   @id @default(cuid())
+  name                   String   // Display name e.g. "Article"
+  singularId             String   @unique // API ID singular e.g. "article"
+  pluralId               String   @unique // API ID plural e.g. "articles"
+  kind                   String   // "collectionType" | "singleType"
+  description            String?
+  draftPublish           Boolean  @default(false)
+  defaultPublicationState String   @default("draft") // "draft" | "published" - default when creating new entry
+  i18n                   Boolean  @default(false)
+  attributes             String   // JSON: array of attribute definitions
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   documents Document[]
 }

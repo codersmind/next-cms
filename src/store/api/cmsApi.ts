@@ -16,6 +16,7 @@ export interface ContentType {
   kind: string;
   description: string | null;
   draftPublish: boolean;
+  defaultPublicationState: "draft" | "published";
   i18n: boolean;
   attributes: ContentTypeAttribute[];
 }
@@ -137,7 +138,7 @@ export const cmsApi = createApi({
 
     createContentType: builder.mutation<
       ContentType,
-      { name: string; singularId?: string; pluralId?: string; kind: "collectionType" | "singleType"; description?: string; draftPublish?: boolean; i18n?: boolean; attributes: ContentTypeAttribute[] }
+      { name: string; singularId?: string; pluralId?: string; kind: "collectionType" | "singleType"; description?: string; draftPublish?: boolean; defaultPublicationState?: "draft" | "published"; i18n?: boolean; attributes: ContentTypeAttribute[] }
     >({
       query: (body) => ({
         url: "/api/content-types",
@@ -149,7 +150,7 @@ export const cmsApi = createApi({
 
     updateContentType: builder.mutation<
       ContentType,
-      { id: string } & Partial<{ name: string; singularId: string; pluralId: string; kind: string; description: string; draftPublish: boolean; i18n: boolean; attributes: ContentTypeAttribute[] }>
+      { id: string } & Partial<{ name: string; singularId: string; pluralId: string; kind: string; description: string; draftPublish: boolean; defaultPublicationState: "draft" | "published"; i18n: boolean; attributes: ContentTypeAttribute[] }>
     >({
       query: ({ id, ...body }) => ({
         url: `/api/content-types/${id}`,

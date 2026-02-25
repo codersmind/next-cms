@@ -46,7 +46,8 @@ export default function NewDocumentPage() {
   }
 
   const attributes = (contentType.attributes ?? []) as ContentTypeAttribute[];
-  const initialValues: Record<string, unknown> = { published: false, publishedAt: "" };
+  const defaultPublished = contentType.defaultPublicationState === "published";
+  const initialValues: Record<string, unknown> = { published: defaultPublished, publishedAt: "" };
   const shape: Record<string, Yup.AnySchema> = { published: Yup.boolean(), publishedAt: Yup.string() };
   for (const attr of attributes) {
     switch (attr.type) {
