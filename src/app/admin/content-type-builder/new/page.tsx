@@ -3,9 +3,9 @@
 import { useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Formik, Form, Field, FieldArray } from "formik";
+import { Formik, Form, Field, FieldArray, useFormikContext } from "formik";
 import * as Yup from "yup";
-import { Settings2, ListChecks, Plus, Trash2, Link2, Puzzle, LayoutGrid } from "lucide-react";
+import { Settings2, ListChecks, Plus, Trash2, Link2, Puzzle, LayoutGrid, ChevronRight, ListOrdered } from "lucide-react";
 import toast from "react-hot-toast";
 import { useCreateContentTypeMutation, useGetContentTypesQuery, useGetComponentsQuery, type ContentTypeAttribute } from "@/store/api/cmsApi";
 import { FormField, FormikSwitch } from "@/components/forms";
@@ -77,6 +77,13 @@ function getValidationSchema(kind: "collectionType" | "singleType") {
           component: Yup.string(),
           repeatable: Yup.boolean(),
           components: Yup.array().of(Yup.string()),
+          enum: Yup.array().of(Yup.string()),
+          default: Yup.string(),
+          label: Yup.string(),
+          unique: Yup.boolean(),
+          className: Yup.string(),
+          description: Yup.string(),
+          private: Yup.boolean(),
         })
       )
       .min(1, "Add at least one field"),
@@ -85,11 +92,75 @@ function getValidationSchema(kind: "collectionType" | "singleType") {
 
 type Values = Yup.InferType<ReturnType<typeof getValidationSchema>>;
 
-const emptyAttribute: ContentTypeAttribute = {
+const emptyAttribute: ContentTypeAttribute & {
+  relation?: string;
+  repeatable?: boolean;
+  components?: string[];
+  label?: string;
+  unique?: boolean;
+  className?: string;
+  description?: string;
+  private?: boolean;
+} = {
   name: "",
   type: "text",
   required: false,
+  relation: "manyToOne",
+  repeatable: false,
+  components: [],
+  label: "",
+  unique: false,
+  className: "",
+  description: "",
+  private: false,
+  enum: [],
+  default: "",
 };
+
+function EnumerationOptions({ index }: { index: number }) {
+  const { values, setFieldValue } = useFormikContext<Values>();
+  const attr = values.attributes?.[index];
+  const enumArr = Array.isArray(attr?.enum) ? attr.enum : [];
+  const enumText = enumArr.join("\n");
+  return (
+    <div className="flex flex-wrap items-end gap-4 pt-2 border-t border-zinc-700">
+      <div className="flex items-center gap-2 text-zinc-400">
+        <ListOrdered className="w-4 h-4" />
+        <span className="text-xs font-medium uppercase">Enumeration</span>
+      </div>
+      <div className="w-full max-w-md">
+        <label className="block text-xs text-zinc-500 mb-1">Values (one per line)</label>
+        <textarea
+          value={enumText}
+          onChange={(e) => {
+            const arr = e.target.value
+              .split(/\n/)
+              .map((s) => s.trim())
+              .filter(Boolean);
+            setFieldValue(`attributes.${index}.enum`, arr);
+          }}
+          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm font-mono min-h-[80px]"
+          placeholder="option1&#10;option2&#10;option3"
+        />
+      </div>
+      <div className="min-w-[180px]">
+        <label className="block text-xs text-zinc-500 mb-1">Default value</label>
+        <Field
+          as="select"
+          name={`attributes.${index}.default`}
+          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
+        >
+          <option value="">No default</option>
+          {enumArr.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </Field>
+      </div>
+    </div>
+  );
+}
 
 export default function NewContentTypePage() {
   const searchParams = useSearchParams();
@@ -111,7 +182,7 @@ export default function NewContentTypePage() {
 
   async function onSubmit(values: Values) {
     const attributes = (values.attributes ?? []).map((attr) => {
-      const a = { ...attr } as ContentTypeAttribute;
+      const a = { ...attr } as ContentTypeAttribute & Record<string, unknown>;
       if (attr.type === "relation") {
         a.target = attr.target || undefined;
         a.relation = (attr.relation as string) || "manyToOne";
@@ -123,7 +194,16 @@ export default function NewContentTypePage() {
       if (attr.type === "dynamiczone") {
         a.components = Array.isArray(attr.components) ? attr.components : [];
       }
-      return a;
+      if (attr.type === "enumeration") {
+        a.enum = Array.isArray(attr.enum) ? attr.enum : [];
+        a.default = (attr as { default?: string }).default?.trim() || undefined;
+      }
+      a.label = (attr as { label?: string }).label?.trim() || undefined;
+      a.unique = !!(attr as { unique?: boolean }).unique;
+      a.className = (attr as { className?: string }).className?.trim() || undefined;
+      a.description = (attr as { description?: string }).description?.trim() || undefined;
+      a.private = !!(attr as { private?: boolean }).private;
+      return a as ContentTypeAttribute;
     });
     try {
       await createContentType({
@@ -232,6 +312,7 @@ export default function NewContentTypePage() {
                       const isRelation = type === "relation";
                       const isComponent = type === "component";
                       const isDynamicZone = type === "dynamiczone";
+                      const isEnumeration = type === "enumeration";
                       return (
                       <div
                         key={index}
@@ -276,6 +357,52 @@ export default function NewContentTypePage() {
                             Remove
                           </button>
                         </div>
+                        <details className="group pt-2 border-t border-zinc-700">
+                          <summary className="flex items-center gap-2 cursor-pointer list-none text-zinc-400 hover:text-zinc-300 text-sm font-medium">
+                            <ChevronRight className="w-4 h-4 group-open:rotate-90 transition-transform" />
+                            <Settings2 className="w-4 h-4" />
+                            Advanced options
+                          </summary>
+                          <div className="mt-3 flex flex-wrap gap-4">
+                            <div className="min-w-[160px] flex-1">
+                              <label className="block text-xs text-zinc-500 mb-1">Label</label>
+                              <Field
+                                name={`attributes.${index}.label`}
+                                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
+                                placeholder="Display name (optional)"
+                              />
+                            </div>
+                            <div className="min-w-[160px] flex-1">
+                              <label className="block text-xs text-zinc-500 mb-1">Description</label>
+                              <Field
+                                name={`attributes.${index}.description`}
+                                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
+                                placeholder="Help text (optional)"
+                              />
+                            </div>
+                            <div className="min-w-[160px] flex-1">
+                              <label className="block text-xs text-zinc-500 mb-1">Class name</label>
+                              <Field
+                                name={`attributes.${index}.className`}
+                                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
+                                placeholder="CSS class (optional)"
+                              />
+                            </div>
+                            <div className="flex items-end gap-4">
+                              <FormikSwitch
+                                name={`attributes.${index}.unique`}
+                                label="Unique"
+                                size="sm"
+                              />
+                              <FormikSwitch
+                                name={`attributes.${index}.private`}
+                                label="Private (exclude from API)"
+                                size="sm"
+                              />
+                            </div>
+                          </div>
+                        </details>
+                        {isEnumeration && <EnumerationOptions index={index} />}
                         {isRelation && (
                           <div className="flex flex-wrap items-end gap-4 pt-2 border-t border-zinc-700">
                             <div className="flex items-center gap-2 text-zinc-400">

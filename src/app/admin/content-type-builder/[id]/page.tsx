@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Formik, Form, Field, FieldArray } from "formik";
+import { Formik, Form, Field, FieldArray, useFormikContext } from "formik";
 import * as Yup from "yup";
 import {
   DndContext,
@@ -32,7 +32,7 @@ import {
 import { FormField, FormikSwitch } from "@/components/forms";
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { Trash2, ExternalLink, ListChecks, Plus, Link2, Puzzle, LayoutGrid, Settings2, GripVertical } from "lucide-react";
+import { Trash2, ExternalLink, ListChecks, Plus, Link2, Puzzle, LayoutGrid, Settings2, GripVertical, ChevronRight, ListOrdered } from "lucide-react";
 
 const FIELD_TYPES = [
   { value: "text", label: "Text" },
@@ -63,7 +63,20 @@ function componentUid(category: string, name: string): string {
   return `${category}.${name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`;
 }
 
-function normalizeAttribute(attr: ContentTypeAttribute): ContentTypeAttribute & { relation?: string; repeatable?: boolean; components?: string[] } {
+type AttributeForm = ContentTypeAttribute & {
+  relation?: string;
+  repeatable?: boolean;
+  components?: string[];
+  label?: string;
+  unique?: boolean;
+  className?: string;
+  description?: string;
+  private?: boolean;
+  /** Enum default value (for type === "enumeration") */
+  default?: string;
+};
+
+function normalizeAttribute(attr: ContentTypeAttribute): AttributeForm {
   return {
     name: attr.name ?? "",
     type: attr.type ?? "text",
@@ -73,7 +86,13 @@ function normalizeAttribute(attr: ContentTypeAttribute): ContentTypeAttribute & 
     component: attr.component ?? "",
     repeatable: !!attr.repeatable,
     components: Array.isArray(attr.components) ? attr.components : [],
-    enum: attr.enum,
+    enum: Array.isArray(attr.enum) ? attr.enum : [],
+    default: typeof (attr as { default?: string }).default === "string" ? (attr as { default?: string }).default : "",
+    label: typeof attr.label === "string" ? attr.label : "",
+    unique: !!attr.unique,
+    className: typeof attr.className === "string" ? attr.className : "",
+    description: typeof (attr as { description?: string }).description === "string" ? (attr as { description?: string }).description : "",
+    private: !!(attr as { private?: boolean }).private,
   };
 }
 
@@ -92,6 +111,13 @@ const editSchema = Yup.object({
         component: Yup.string(),
         repeatable: Yup.boolean(),
         components: Yup.array().of(Yup.string()),
+        enum: Yup.array().of(Yup.string()),
+        default: Yup.string(),
+        label: Yup.string(),
+        unique: Yup.boolean(),
+        className: Yup.string(),
+        description: Yup.string(),
+        private: Yup.boolean(),
       })
     )
     .min(1, "Add at least one field"),
@@ -99,13 +125,20 @@ const editSchema = Yup.object({
 
 type EditValues = Yup.InferType<typeof editSchema>;
 
-const emptyAttribute: ContentTypeAttribute & { relation?: string; repeatable?: boolean; components?: string[] } = {
+const emptyAttribute: AttributeForm = {
   name: "",
   type: "text",
   required: false,
   relation: "manyToOne",
   repeatable: false,
   components: [],
+  label: "",
+  unique: false,
+  className: "",
+  description: "",
+  private: false,
+  enum: [],
+  default: "",
 };
 
 function SortableFieldRow({
@@ -151,6 +184,51 @@ function SortableFieldRow({
   );
 }
 
+function EnumerationOptions({ index }: { index: number }) {
+  const { values, setFieldValue } = useFormikContext<EditValues>();
+  const attr = values.attributes?.[index] as AttributeForm | undefined;
+  const enumArr = Array.isArray(attr?.enum) ? attr.enum : [];
+  const enumText = enumArr.join("\n");
+  return (
+    <div className="flex flex-wrap items-end gap-4 pt-2 border-t border-zinc-700">
+      <div className="flex items-center gap-2 text-zinc-400">
+        <ListOrdered className="w-4 h-4" />
+        <span className="text-xs font-medium uppercase">Enumeration</span>
+      </div>
+      <div className="w-full max-w-md">
+        <label className="block text-xs text-zinc-500 mb-1">Values (one per line)</label>
+        <textarea
+          value={enumText}
+          onChange={(e) => {
+            const arr = e.target.value
+              .split(/\n/)
+              .map((s) => s.trim())
+              .filter(Boolean);
+            setFieldValue(`attributes.${index}.enum`, arr);
+          }}
+          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm font-mono min-h-[80px]"
+          placeholder="option1&#10;option2&#10;option3"
+        />
+      </div>
+      <div className="min-w-[180px]">
+        <label className="block text-xs text-zinc-500 mb-1">Default value</label>
+        <Field
+          as="select"
+          name={`attributes.${index}.default`}
+          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
+        >
+          <option value="">No default</option>
+          {enumArr.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </Field>
+      </div>
+    </div>
+  );
+}
+
 export default function EditContentTypePage() {
   const params = useParams();
   const id = params.id as string;
@@ -187,7 +265,7 @@ export default function EditContentTypePage() {
 
   async function handleSubmit(values: EditValues) {
     const attributes = (values.attributes ?? []).map((attr) => {
-      const a = { ...attr } as ContentTypeAttribute;
+      const a = { ...attr } as ContentTypeAttribute & Record<string, unknown>;
       if (attr.type === "relation") {
         a.target = attr.target || undefined;
         a.relation = (attr.relation as string) || "manyToOne";
@@ -199,7 +277,16 @@ export default function EditContentTypePage() {
       if (attr.type === "dynamiczone") {
         a.components = Array.isArray(attr.components) ? attr.components : [];
       }
-      return a;
+      if (attr.type === "enumeration") {
+        a.enum = Array.isArray(attr.enum) ? attr.enum : [];
+        a.default = (attr as AttributeForm).default?.trim() || undefined;
+      }
+      a.label = (attr as AttributeForm).label?.trim() || undefined;
+      a.unique = !!(attr as AttributeForm).unique;
+      a.className = (attr as AttributeForm).className?.trim() || undefined;
+      a.description = (attr as AttributeForm).description?.trim() || undefined;
+      a.private = !!(attr as AttributeForm).private;
+      return a as ContentTypeAttribute;
     });
     try {
       await updateContentType({ id, name: values.name, draftPublish: values.draftPublish, defaultPublicationState: values.defaultPublicationState as "draft" | "published", attributes }).unwrap();
@@ -347,6 +434,7 @@ export default function EditContentTypePage() {
                             const isRelation = type === "relation";
                             const isComponent = type === "component";
                             const isDynamicZone = type === "dynamiczone";
+                            const isEnumeration = type === "enumeration";
                             return (
                               <SortableFieldRow key={index} id={String(index)}>
                                 <>
@@ -389,6 +477,52 @@ export default function EditContentTypePage() {
                               Remove
                             </button>
                           </div>
+                          <details className="group pt-2 border-t border-zinc-700">
+                            <summary className="flex items-center gap-2 cursor-pointer list-none text-zinc-400 hover:text-zinc-300 text-sm font-medium">
+                              <ChevronRight className="w-4 h-4 group-open:rotate-90 transition-transform" />
+                              <Settings2 className="w-4 h-4" />
+                              Advanced options
+                            </summary>
+                            <div className="mt-3 flex flex-wrap gap-4">
+                              <div className="min-w-[160px] flex-1">
+                                <label className="block text-xs text-zinc-500 mb-1">Label</label>
+                                <Field
+                                  name={`attributes.${index}.label`}
+                                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
+                                  placeholder="Display name (optional)"
+                                />
+                              </div>
+                              <div className="min-w-[160px] flex-1">
+                                <label className="block text-xs text-zinc-500 mb-1">Description</label>
+                                <Field
+                                  name={`attributes.${index}.description`}
+                                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
+                                  placeholder="Help text (optional)"
+                                />
+                              </div>
+                              <div className="min-w-[160px] flex-1">
+                                <label className="block text-xs text-zinc-500 mb-1">Class name</label>
+                                <Field
+                                  name={`attributes.${index}.className`}
+                                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
+                                  placeholder="CSS class (optional)"
+                                />
+                              </div>
+                              <div className="flex items-end gap-4">
+                                <FormikSwitch
+                                  name={`attributes.${index}.unique`}
+                                  label="Unique"
+                                  size="sm"
+                                />
+                                <FormikSwitch
+                                  name={`attributes.${index}.private`}
+                                  label="Private (exclude from API)"
+                                  size="sm"
+                                />
+                              </div>
+                            </div>
+                          </details>
+                          {isEnumeration && <EnumerationOptions index={index} />}
                           {isRelation && (
                             <div className="flex flex-wrap items-end gap-4 pt-2 border-t border-zinc-700">
                               <div className="flex items-center gap-2 text-zinc-400">

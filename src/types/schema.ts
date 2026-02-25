@@ -37,6 +37,12 @@ export interface AttributeBase {
   required?: boolean;
   unique?: boolean;
   private?: boolean;
+  /** Display label in admin (defaults to name) */
+  label?: string;
+  /** CSS class for admin form wrapper */
+  className?: string;
+  /** Help text / description */
+  description?: string;
 }
 
 export interface TextAttribute extends AttributeBase {
@@ -66,6 +72,8 @@ export interface EnumAttribute extends AttributeBase {
   type: "enumeration";
   enum?: string[];
   enumName?: string;
+  /** Default value (must be one of enum values) */
+  default?: string;
 }
 
 export interface UidAttribute extends AttributeBase {

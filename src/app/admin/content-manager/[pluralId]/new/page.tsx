@@ -82,8 +82,11 @@ export default function NewDocumentPage() {
         break;
       }
       case "media":
-      case "enumeration":
         initialValues[attr.name] = "";
+        shape[attr.name] = attr.required ? Yup.string().required() : Yup.string();
+        break;
+      case "enumeration":
+        initialValues[attr.name] = (attr as { default?: string }).default ?? "";
         shape[attr.name] = attr.required ? Yup.string().required() : Yup.string();
         break;
       case "component": {
