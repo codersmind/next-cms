@@ -8,7 +8,7 @@ import * as Yup from "yup";
 import { useGetContentTypesQuery, useGetDocumentsQuery, useGetComponentsQuery, useCreateDocumentMutation, type ContentTypeAttribute } from "@/store/api/cmsApi";
 import { FormField, FormikSwitch } from "@/components/forms";
 import { FormikRichText } from "@/components/editor/FormikRichText";
-import { ComponentField, getDefaultComponentValue } from "@/components/ComponentField";
+import { ComponentField, getDefaultComponentValue, DynamicZoneField } from "@/components/ComponentField";
 import { MediaPicker } from "@/components/MediaPicker";
 import { Field } from "formik";
 
@@ -275,14 +275,7 @@ function FieldByType({
     return <ComponentField attr={attr} components={components} />;
   }
   if (attr.type === "dynamiczone") {
-    return (
-      <div>
-        <label className={labelClass}>{attr.name}</label>
-        <p className="text-xs text-zinc-500 mt-1">
-          Dynamic zone – edit via API or future UI.
-        </p>
-      </div>
-    );
+    return <DynamicZoneField attr={attr as ContentTypeAttribute & { components?: string[] }} components={components} />;
   }
   if (attr.type === "boolean") {
     return (
