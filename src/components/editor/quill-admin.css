@@ -1,0 +1,39 @@
+/* Dark theme for Quill in admin */
+.rich-text-editor {
+  background: #18181b;
+}
+.rich-text-editor .ql-toolbar {
+  background: #27272a;
+  border-color: #3f3f46;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+.rich-text-editor .ql-container {
+  border-color: #3f3f46;
+  border-radius: 0 0 0.5rem 0.5rem;
+  font-size: 0.875rem;
+  min-height: 160px;
+}
+.rich-text-editor .ql-editor {
+  min-height: 160px;
+  color: #f4f4f5;
+}
+.rich-text-editor .ql-editor.ql-blank::before {
+  color: #71717a;
+}
+.rich-text-editor .ql-stroke {
+  stroke: #3f3f46;
+}
+.rich-text-editor .ql-fill {
+  fill: #a1a1aa;
+}
+.rich-text-editor .ql-picker {
+  color: #a1a1aa;
+}
+.rich-text-editor .ql-toolbar button:hover .ql-stroke,
+.rich-text-editor .ql-toolbar button.ql-active .ql-stroke {
+  stroke: #6366f1;
+}
+.rich-text-editor .ql-toolbar button:hover .ql-fill,
+.rich-text-editor .ql-toolbar button.ql-active .ql-fill {
+  fill: #6366f1;
+}
