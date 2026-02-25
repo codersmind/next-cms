@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const roleIds = [...new Set(users.map((u) => u.roleId).filter(Boolean))] as string[];
+  const roleIds = Array.from(new Set(users.map((u) => u.roleId).filter(Boolean))) as string[];
   const roles = roleIds.length
     ? await prisma.role.findMany({ where: { id: { in: roleIds } }, select: { id: true, name: true } })
     : [];

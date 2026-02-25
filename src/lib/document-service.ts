@@ -226,7 +226,7 @@ function getFieldValue(
 }
 
 function applyFilters(
-  documents: { data: string; documentId: string; createdAt: Date; updatedAt: Date }[],
+  documents: { data: string; documentId: string; createdAt: Date; updatedAt: Date; publishedAt: Date | null }[],
   filters: Record<string, unknown>,
   attributes: Attribute[]
 ): typeof documents {
@@ -258,7 +258,7 @@ function applyFilters(
 }
 
 function matchAllConditions(
-  doc: { data: string; documentId: string; createdAt: Date; updatedAt: Date },
+  doc: { data: string; documentId: string; createdAt: Date; updatedAt: Date; publishedAt: Date | null },
   data: Record<string, unknown>,
   conditions: Record<string, unknown>,
   allowedKeys: Set<string>,
@@ -402,7 +402,7 @@ export async function createDocument(
         : options.publishedAt instanceof Date
           ? options.publishedAt
           : new Date(options.publishedAt)
-      : contentType.defaultPublicationState === "published"
+      : (contentType as { defaultPublicationState?: string }).defaultPublicationState === "published"
         ? new Date()
         : null;
 

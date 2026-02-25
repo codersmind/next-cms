@@ -26,7 +26,7 @@ export async function GET(
     sort: query.sort,
     page: query.page,
     pageSize: query.pageSize,
-    populate: query.populate,
+    populate: query.populate as string[],
     fields: query.fields,
     publicationState: query.publicationState,
   });

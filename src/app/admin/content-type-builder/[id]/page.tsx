@@ -5,6 +5,22 @@ import Link from "next/link";
 import { Formik, Form, Field, FieldArray } from "formik";
 import * as Yup from "yup";
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   useGetContentTypeQuery,
   useGetContentTypesQuery,
   useGetComponentsQuery,
@@ -16,7 +32,7 @@ import {
 import { FormField, FormikSwitch } from "@/components/forms";
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { Trash2, ExternalLink, ListChecks, Plus, Link2, Puzzle, LayoutGrid, Settings2 } from "lucide-react";
+import { Trash2, ExternalLink, ListChecks, Plus, Link2, Puzzle, LayoutGrid, Settings2, GripVertical } from "lucide-react";
 
 const FIELD_TYPES = [
   { value: "text", label: "Text" },
@@ -92,6 +108,49 @@ const emptyAttribute: ContentTypeAttribute & { relation?: string; repeatable?: b
   components: [],
 };
 
+function SortableFieldRow({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`p-4 rounded-lg bg-zinc-800/50 border border-zinc-800 space-y-4 ${isDragging ? "opacity-80 z-10 shadow-lg" : ""}`}
+    >
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          className="mt-1 p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700 cursor-grab active:cursor-grabbing touch-none"
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+        <div className="flex-1 min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function EditContentTypePage() {
   const params = useParams();
   const id = params.id as string;
@@ -102,6 +161,10 @@ export default function EditContentTypePage() {
   const [updateContentType, { isLoading: saving, error: updateError }] = useUpdateContentTypeMutation();
   const [deleteContentType, { isLoading: deleting }] = useDeleteContentTypeMutation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor)
+  );
 
   const collectionTypes = (contentTypes ?? []).filter((t: ContentType) => t.kind === "collectionType");
 
@@ -230,7 +293,7 @@ export default function EditContentTypePage() {
         onSubmit={handleSubmit}
         enableReinitialize
       >
-        {({ values }) => (
+        {({ values, setFieldValue }) => (
           <Form className="space-y-8">
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-4">
               <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
@@ -261,22 +324,33 @@ export default function EditContentTypePage() {
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
               <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <ListChecks className="w-4 h-4" />
-                Fields
+                Fields <span className="text-zinc-500 font-normal text-xs">(drag to reorder)</span>
               </h2>
               <FieldArray name="attributes">
-                {({ push, remove }) => (
-                  <div className="space-y-4">
-                    {(values.attributes ?? []).map((attr, index) => {
-                      const type = attr.type as string;
-                      const isRelation = type === "relation";
-                      const isComponent = type === "component";
-                      const isDynamicZone = type === "dynamiczone";
-                      return (
-                        <div
-                          key={index}
-                          className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-800 space-y-4"
-                        >
-                          <div className="flex flex-wrap items-end gap-4">
+                {({ push, remove }) => {
+                  const attributes = values.attributes ?? [];
+                  const handleDragEnd = (event: DragEndEvent) => {
+                    const { active, over } = event;
+                    if (over == null || active.id === over.id) return;
+                    const oldIndex = attributes.findIndex((_, i) => String(i) === active.id);
+                    const newIndex = attributes.findIndex((_, i) => String(i) === over.id);
+                    if (oldIndex === -1 || newIndex === -1) return;
+                    const reordered = arrayMove(attributes, oldIndex, newIndex);
+                    setFieldValue("attributes", reordered);
+                  };
+                  return (
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                      <SortableContext items={attributes.map((_, i) => String(i))} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-4">
+                          {attributes.map((attr, index) => {
+                            const type = attr.type as string;
+                            const isRelation = type === "relation";
+                            const isComponent = type === "component";
+                            const isDynamicZone = type === "dynamiczone";
+                            return (
+                              <SortableFieldRow key={index} id={String(index)}>
+                                <>
+                                  <div className="flex flex-wrap items-end gap-4">
                             <div className="flex-1 min-w-[140px]">
                               <label className="block text-xs text-zinc-500 mb-1">Name</label>
                               <Field
@@ -406,19 +480,23 @@ export default function EditContentTypePage() {
                               </div>
                             </div>
                           )}
+                                </>
+                              </SortableFieldRow>
+                            );
+                          })}
+                          <button
+                            type="button"
+                            onClick={() => push({ ...emptyAttribute })}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-zinc-600 text-zinc-500 text-sm hover:border-zinc-500 hover:text-zinc-400"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add another field
+                          </button>
                         </div>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => push({ ...emptyAttribute })}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-zinc-600 text-zinc-500 text-sm hover:border-zinc-500 hover:text-zinc-400"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add another field
-                    </button>
-                  </div>
-                )}
+                      </SortableContext>
+                    </DndContext>
+                  );
+                }}
               </FieldArray>
             </div>
 

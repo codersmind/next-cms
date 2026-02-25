@@ -108,7 +108,7 @@ export default function NewComponentPage() {
               <FieldArray name="attributes">
                 {({ push, remove }) => (
                   <div className="space-y-4">
-                    {values.attributes.map((_, index) => (
+                    {(values.attributes ?? []).map((_, index) => (
                       <div
                         key={index}
                         className="flex flex-wrap items-end gap-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-800"

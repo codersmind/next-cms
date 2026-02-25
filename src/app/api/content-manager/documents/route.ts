@@ -15,9 +15,16 @@ export async function GET(req: NextRequest) {
   if (!contentType) return NextResponse.json({ error: "Content type not found" }, { status: 404 });
   const query = parseContentQuery(Object.fromEntries(req.nextUrl.searchParams.entries()));
   const result = await findDocuments(pluralId, {
-    ...query,
+    filters: query.filters,
+    sort: query.sort,
+    page: query.page,
+    pageSize: query.pageSize,
+    populate: query.populate,
+    fields: query.fields,
     publicationState: "preview",
     status: query.status,
+    search: query.search,
+    searchField: query.searchField,
   });
   if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(result);

@@ -17,7 +17,7 @@ export async function GET(
   const { documentId } = await params;
   const query = parseContentQuery(Object.fromEntries(req.nextUrl.searchParams.entries()));
   const result = await findOneDocument(pluralId, documentId, {
-    populate: query.populate,
+    populate: query.populate as string[],
     fields: query.fields,
   });
   if (!result) return NextResponse.json({ error: "Document not found" }, { status: 404 });

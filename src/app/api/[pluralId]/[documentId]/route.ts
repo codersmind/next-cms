@@ -23,7 +23,7 @@ export async function GET(
   const searchParams = _req.nextUrl.searchParams;
   const query = parseContentQuery(Object.fromEntries(searchParams.entries()));
   const result = await findOneDocument(pluralId, documentId, {
-    populate: query.populate,
+    populate: query.populate as string[],
     fields: query.fields,
   });
   if (!result) {
