@@ -323,12 +323,13 @@ export default function NewContentTypePage() {
                       >
                         <div className="flex flex-wrap items-end gap-4">
                           <div className="flex-1 min-w-[140px]">
-                            <label className="block text-xs text-zinc-500 mb-1">Name</label>
+                            <label className="block text-xs text-zinc-500 mb-1">Name (API key)</label>
                             <Field
                               name={`attributes.${index}.name`}
                               className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
-                              placeholder="fieldName"
+                              placeholder="e.g. slug, title"
                             />
+                            <p className="mt-0.5 text-xs text-zinc-600">Used in forms and document data</p>
                           </div>
                           <div className="w-40">
                             <label className="block text-xs text-zinc-500 mb-1">Type</label>
@@ -368,11 +369,11 @@ export default function NewContentTypePage() {
                           </summary>
                           <div className="mt-3 flex flex-wrap gap-4">
                             <div className="min-w-[160px] flex-1">
-                              <label className="block text-xs text-zinc-500 mb-1">Label</label>
+                              <label className="block text-xs text-zinc-500 mb-1">Label (display name)</label>
                               <Field
                                 name={`attributes.${index}.label`}
                                 className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
-                                placeholder="Display name (optional)"
+                                placeholder="Shown in list and form labels"
                               />
                             </div>
                             <div className="min-w-[160px] flex-1">

@@ -6,6 +6,7 @@ import { FormikRichText } from "@/components/editor/FormikRichText";
 import { MediaPicker } from "@/components/MediaPicker";
 import type { ContentTypeAttribute } from "@/store/api/cmsApi";
 import type { Component } from "@/store/api/cmsApi";
+import { getFieldLabel } from "@/lib/field-label";
 import { Plus, Trash2, GripVertical } from "lucide-react";
 
 function componentUid(category: string, name: string): string {
@@ -28,18 +29,20 @@ function ComponentAttributeField({
   attr: ContentTypeAttribute;
 }) {
   const name = `${baseName}.${attr.name}`;
+  const label = getFieldLabel(attr);
+  const labelReq = `${label}${attr.required ? " *" : ""}`;
   const inputClass =
     "w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
   const labelClass = "block mb-1 text-sm text-zinc-400";
 
   if (attr.type === "boolean") {
-    return <FormikSwitch name={name} label={attr.name} />;
+    return <FormikSwitch name={name} label={label} />;
   }
   if (attr.type === "richtext" || attr.type === "richtext-markdown") {
     return (
       <FormikRichText
         name={name}
-        label={`${attr.name}${attr.required ? " *" : ""}`}
+        label={labelReq}
         placeholder=""
       />
     );
@@ -48,7 +51,7 @@ function ComponentAttributeField({
     return (
       <FormField
         name={name}
-        label={`${attr.name}${attr.required ? " *" : ""}`}
+        label={labelReq}
         type="number"
       />
     );
@@ -57,7 +60,7 @@ function ComponentAttributeField({
     return (
       <FormField
         name={name}
-        label={`${attr.name}${attr.required ? " *" : ""}`}
+        label={labelReq}
         type="datetime-local"
       />
     );
@@ -65,20 +68,20 @@ function ComponentAttributeField({
   if (attr.type === "json") {
     return (
       <div>
-        <label className={labelClass}>{attr.name}</label>
+        <label className={labelClass}>{label}</label>
         <Field as="textarea" name={name} rows={3} className={inputClass} placeholder="{}" />
       </div>
     );
   }
   if (attr.type === "media") {
     return (
-      <MediaPicker name={name} label={`${attr.name}${attr.required ? " *" : ""}`} />
+      <MediaPicker name={name} label={labelReq} />
     );
   }
   return (
     <FormField
       name={name}
-      label={`${attr.name}${attr.required ? " *" : ""}`}
+      label={labelReq}
       type={attr.type === "email" ? "email" : "text"}
     />
   );
@@ -92,6 +95,7 @@ export function ComponentField({
   components: Component[];
 }) {
   const labelClass = "block mb-1 text-sm text-zinc-400";
+  const label = getFieldLabel(attr);
   const componentUidValue = String(attr.component ?? "");
   const comp = components.find(
     (c) => componentUid(c.category, c.name) === componentUidValue
@@ -101,7 +105,7 @@ export function ComponentField({
   if (!componentUidValue) {
     return (
       <div>
-        <label className={labelClass}>{attr.name}</label>
+        <label className={labelClass}>{label}</label>
         <p className="text-xs text-zinc-500">Select a component in Content-Type Builder.</p>
       </div>
     );
@@ -109,7 +113,7 @@ export function ComponentField({
   if (!comp) {
     return (
       <div>
-        <label className={labelClass}>{attr.name}</label>
+        <label className={labelClass}>{label}</label>
         <p className="text-xs text-zinc-500">Component “{componentUidValue}” not found.</p>
       </div>
     );
@@ -120,7 +124,7 @@ export function ComponentField({
   if (attr.repeatable) {
     return (
       <div>
-        <label className={labelClass}>{attr.name} (repeatable)</label>
+        <label className={labelClass}>{label} (repeatable)</label>
         <FieldArray name={attr.name}>
           {({ push, remove, form }) => {
             const items = (form.values[attr.name] as Record<string, unknown>[]) ?? [];
@@ -170,7 +174,7 @@ export function ComponentField({
 
   return (
     <div>
-      <label className={labelClass}>{attr.name}</label>
+      <label className={labelClass}>{label}</label>
       <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700 space-y-3">
         {compAttrs.map((ca) => (
           <ComponentAttributeField key={ca.name} baseName={attr.name} attr={ca} />
@@ -190,12 +194,13 @@ export function DynamicZoneField({
   components: Component[];
 }) {
   const labelClass = "block mb-1 text-sm text-zinc-400";
+  const label = getFieldLabel(attr);
   const allowedUids = Array.isArray(attr.components) ? attr.components : [];
 
   if (allowedUids.length === 0) {
     return (
       <div>
-        <label className={labelClass}>{attr.name}</label>
+        <label className={labelClass}>{label}</label>
         <p className="text-xs text-zinc-500 mt-1">
           Dynamic zone – add allowed components in Content-Type Builder.
         </p>
@@ -212,7 +217,7 @@ export function DynamicZoneField({
 
   return (
     <div>
-      <label className={labelClass}>{attr.name} (dynamic zone)</label>
+      <label className={labelClass}>{label} (dynamic zone)</label>
       <FieldArray name={attr.name}>
         {({ push, remove, form }) => {
           const items = (form.values[attr.name] as { __component?: string; [k: string]: unknown }[]) ?? [];

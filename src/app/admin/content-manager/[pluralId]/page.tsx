@@ -24,12 +24,13 @@ import {
   getFieldType,
   type FilterOpOption,
 } from "@/lib/filter-config";
+import { getFieldLabel, getColumnLabel } from "@/lib/field-label";
 
 const PAGE_SIZES = [10, 25, 50, 100];
 const SEARCH_DEBOUNCE_MS = 400;
 const COLUMNS_STORAGE_KEY = "content-manager-visible-columns";
 
-type Attr = { name: string; type: string; enum?: string[] };
+type Attr = { name: string; type: string; enum?: string[]; label?: string };
 
 export default function ContentManagerListPage() {
   const params = useParams();
@@ -189,7 +190,7 @@ export default function ContentManagerListPage() {
       { value: "updatedAt", label: "updatedAt" },
     ];
     for (const a of attributes) {
-      list.push({ value: a.name, label: a.name });
+      list.push({ value: a.name, label: getFieldLabel(a) });
     }
     return list;
   }, [attributes]);
@@ -198,7 +199,7 @@ export default function ContentManagerListPage() {
     const list: { value: string; label: string }[] = [{ value: "", label: "All fields" }];
     const textTypes = new Set(["text", "richtext", "richtext-markdown", "email", "uid"]);
     for (const a of attributes) {
-      if (textTypes.has(a.type)) list.push({ value: a.name, label: a.name });
+      if (textTypes.has(a.type)) list.push({ value: a.name, label: getFieldLabel(a) });
     }
     list.push({ value: "documentId", label: "documentId" });
     return list;
@@ -483,7 +484,7 @@ export default function ContentManagerListPage() {
                             className="rounded border-zinc-600 text-indigo-600 focus:ring-indigo-500 shrink-0"
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <span className="text-sm text-zinc-300 truncate">{colId}</span>
+                          <span className="text-sm text-zinc-300 truncate">{getColumnLabel(colId, attributes)}</span>
                         </div>
                       ))}
                     </div>
@@ -505,7 +506,7 @@ export default function ContentManagerListPage() {
                             onChange={() => setColumnVisible(colId, true)}
                             className="rounded border-zinc-600 text-indigo-600 focus:ring-indigo-500 shrink-0"
                           />
-                          <span className="text-sm text-zinc-300 truncate">{colId}</span>
+                          <span className="text-sm text-zinc-300 truncate">{getColumnLabel(colId, attributes)}</span>
                         </label>
                       ))}
                     </div>
@@ -617,7 +618,7 @@ export default function ContentManagerListPage() {
                   sortableFields.includes(colId) ? (
                     <SortableTh
                       key={colId}
-                      label={colId}
+                      label={getColumnLabel(colId, attributes)}
                       field={colId}
                     />
                   ) : (
@@ -625,7 +626,7 @@ export default function ContentManagerListPage() {
                       key={colId}
                       className="text-left px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider"
                     >
-                      {colId}
+                      {getColumnLabel(colId, attributes)}
                     </th>
                   )
                 )}

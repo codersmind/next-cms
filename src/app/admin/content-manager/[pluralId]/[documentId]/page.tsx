@@ -18,6 +18,7 @@ import { FormikRichText } from "@/components/editor/FormikRichText";
 import { ComponentField, getDefaultComponentValue, DynamicZoneField } from "@/components/ComponentField";
 import { MediaPicker } from "@/components/MediaPicker";
 import { Field } from "formik";
+import { getFieldLabel } from "@/lib/field-label";
 
 function componentUid(category: string, name: string): string {
   return `${category}.${name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`;
@@ -85,13 +86,13 @@ export default function EditDocumentPage() {
       case "email":
       case "uid":
         initialValues[attr.name] = hasValue ? String(existing) : "";
-        shape[attr.name] = attr.required ? Yup.string().required(`${attr.name} is required`) : Yup.string();
+        shape[attr.name] = attr.required ? Yup.string().required(`${getFieldLabel(attr)} is required`) : Yup.string();
         break;
       case "richtext":
       case "richtext-markdown":
         initialValues[attr.name] =
           typeof existing === "string" ? existing : Array.isArray(existing) ? "" : hasValue ? String(existing) : "";
-        shape[attr.name] = attr.required ? Yup.string().required(`${attr.name} is required`) : Yup.string();
+        shape[attr.name] = attr.required ? Yup.string().required(`${getFieldLabel(attr)} is required`) : Yup.string();
         break;
       case "number":
         initialValues[attr.name] = hasValue ? (typeof existing === "number" ? existing : Number(existing) || "") : "";
@@ -318,7 +319,7 @@ function RelationField({
   if (!targetPlural) {
     return (
       <div>
-        <label className="block mb-1 text-sm text-zinc-400">{attr.name}</label>
+        <label className="block mb-1 text-sm text-zinc-400">{getFieldLabel(attr)}</label>
         <p className="text-xs text-zinc-500">Select a target content type in Content-Type Builder.</p>
       </div>
     );
@@ -330,7 +331,7 @@ function RelationField({
   if (multi) {
     return (
       <div>
-        <label className={labelClass}>{attr.name} (relation)</label>
+        <label className={labelClass}>{getFieldLabel(attr)} (relation)</label>
         <Field as="select" name={attr.name} multiple className={inputClass + " min-h-[80px]"}>
           <option value="">—</option>
           {documents.map((doc) => (
@@ -345,7 +346,7 @@ function RelationField({
   }
   return (
     <div>
-      <label className={labelClass}>{attr.name} (relation)</label>
+      <label className={labelClass}>{getFieldLabel(attr)} (relation)</label>
       <Field as="select" name={attr.name} className={inputClass}>
         <option value="">— None —</option>
         {documents.map((doc) => (
@@ -380,16 +381,18 @@ function FieldByType({
   if (attr.type === "dynamiczone") {
     return <DynamicZoneField attr={attr as ContentTypeAttribute & { components?: string[] }} components={components} />;
   }
+  const label = getFieldLabel(attr);
+  const labelReq = `${label}${attr.required ? " *" : ""}`;
   if (attr.type === "boolean") {
     return (
-      <FormikSwitch name={attr.name} label={attr.name} />
+      <FormikSwitch name={attr.name} label={label} />
     );
   }
   if (attr.type === "richtext" || attr.type === "richtext-markdown") {
     return (
       <FormikRichText
         name={attr.name}
-        label={`${attr.name}${attr.required ? " *" : ""}`}
+        label={labelReq}
         placeholder="Write content…"
       />
     );
@@ -398,7 +401,7 @@ function FieldByType({
     return (
       <FormField
         name={attr.name}
-        label={`${attr.name}${attr.required ? " *" : ""}`}
+        label={labelReq}
         type="number"
       />
     );
@@ -407,7 +410,7 @@ function FieldByType({
     return (
       <FormField
         name={attr.name}
-        label={`${attr.name}${attr.required ? " *" : ""}`}
+        label={labelReq}
         type="datetime-local"
       />
     );
@@ -415,21 +418,21 @@ function FieldByType({
   if (attr.type === "json") {
     return (
       <div>
-        <label className={labelClass}>{attr.name}</label>
+        <label className={labelClass}>{label}</label>
         <Field as="textarea" name={attr.name} rows={4} className={inputClass} placeholder="{}" />
       </div>
     );
   }
   if (attr.type === "media") {
     return (
-      <MediaPicker name={attr.name} label={`${attr.name}${attr.required ? " *" : ""}`} />
+      <MediaPicker name={attr.name} label={labelReq} />
     );
   }
   if (attr.type === "enumeration") {
     const options = Array.isArray(attr.enum) ? attr.enum : [];
     return (
       <div>
-        <label className={labelClass}>{attr.name}{attr.required ? " *" : ""}</label>
+        <label className={labelClass}>{labelReq}</label>
         <Field as="select" name={attr.name} className={inputClass}>
           <option value="">— Select —</option>
           {options.map((opt) => (
@@ -444,7 +447,7 @@ function FieldByType({
   return (
     <FormField
       name={attr.name}
-      label={`${attr.name}${attr.required ? " *" : ""}`}
+      label={labelReq}
       type={attr.type === "email" ? "email" : "text"}
     />
   );
