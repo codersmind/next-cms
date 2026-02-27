@@ -200,14 +200,15 @@ function EnumerationOptions({ index }: { index: number }) {
         <textarea
           value={enumText}
           onChange={(e) => {
-            const arr = e.target.value
-              .split(/\n/)
-              .map((s) => s.trim())
-              .filter(Boolean);
+            const arr = e.target.value.split(/\n/).map((s) => s.trim());
             setFieldValue(`attributes.${index}.enum`, arr);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.stopPropagation();
           }}
           className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm font-mono min-h-[80px]"
           placeholder="option1&#10;option2&#10;option3"
+          rows={5}
         />
       </div>
       <div className="min-w-[180px]">
@@ -218,7 +219,7 @@ function EnumerationOptions({ index }: { index: number }) {
           className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-white text-sm"
         >
           <option value="">No default</option>
-          {enumArr.map((opt) => (
+          {enumArr.filter((s) => String(s).trim() !== "").map((opt) => (
             <option key={opt} value={opt}>
               {opt}
             </option>
@@ -278,7 +279,9 @@ export default function EditContentTypePage() {
         a.components = Array.isArray(attr.components) ? attr.components : [];
       }
       if (attr.type === "enumeration") {
-        a.enum = Array.isArray(attr.enum) ? attr.enum : [];
+        a.enum = Array.isArray(attr.enum)
+          ? (attr.enum as string[]).filter((s) => String(s).trim() !== "")
+          : [];
         a.default = (attr as AttributeForm).default?.trim() || undefined;
       }
       a.label = (attr as AttributeForm).label?.trim() || undefined;
