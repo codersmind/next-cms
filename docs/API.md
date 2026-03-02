@@ -462,12 +462,32 @@ Used by **GET list** endpoints: Content Manager documents and public `GET /api/[
 | `pageSize`         | number | Page size (default: 25, max: 100) |
 | `pagination[page]` | number | Same as `page` |
 | `pagination[pageSize]` | number | Same as `pageSize` |
-| `populate`         | string / array | Relations to populate, e.g. `*` or `["author","category"]` |
-| `fields`           | string | Comma-separated field list to return |
+| `populate`         | string / array / object | Relations/components to populate. Use `*` or `populate=banner` or `populate[]=banner&populate[]=author`. To **select fields** inside a relation/component use object form: `populate[banner][fields][0]=name&populate[banner][fields][1]=image` (only returns `name` and `image` inside `banner`). |
+| `fields`           | string / array | Top-level fields to return, e.g. `title,banner` or `fields[0]=title&fields[1]=banner` |
 | `publicationState` | string | `live` \| `preview` (Content Manager uses preview) |
 | `status`           | string | (Content Manager only) `draft` \| `published` \| `scheduled` |
 | `_q` / `search` / `q` | string | Full-text search (in text-like fields) |
 | `searchField`      | string | Field to search in (optional) |
+
+### Populate and field selection
+
+**Populate** controls which relations, media, and components are expanded (resolved) in the response. Unpopulated relation/media fields stay as IDs.
+
+| Example | Effect |
+|--------|--------|
+| `?populate=*` | Populate everything (all relations, media, components). |
+| `?populate=banner` | Populate only the `banner` field (e.g. component or relation). |
+| `?populate=banner&populate=author` | Populate both `banner` and `author`. |
+| `?populate[banner]=*` | Same as `populate=banner`; use object form when adding options below. |
+
+**Select fields inside a populated relation/component** so the response only includes certain sub-fields:
+
+| Example | Effect |
+|--------|--------|
+| `?populate[banner][fields][0]=name` | Populate `banner` but only return the `name` field inside it. |
+| `?populate[banner][fields][0]=name&populate[banner][fields][1]=image` | Populate `banner` and only return `name` and `image` inside it. |
+
+**Fields** (top-level) limits which root-level keys are returned (e.g. `?fields=title,slug,banner`). Use bracket form for multiple: `?fields[0]=title&fields[1]=banner`.
 
 ---
 

@@ -20,14 +20,14 @@ export async function GET(
   if (!contentType) {
     return NextResponse.json({ error: "Content type not found", data: null }, { status: 404 });
   }
-  const searchParams = _req.nextUrl.searchParams;
-  const query = parseContentQuery(Object.fromEntries(searchParams.entries()));
+  const queryString = _req.nextUrl.search ? _req.nextUrl.search.slice(1) : "";
+  const query = parseContentQuery(queryString);
   const result = await findDocuments(pluralId, {
     filters: query.filters,
     sort: query.sort,
     page: query.page,
     pageSize: query.pageSize,
-    populate: query.populate as string[],
+    populate: query.populate,
     fields: query.fields,
     publicationState: query.publicationState,
   });

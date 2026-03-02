@@ -68,11 +68,19 @@ export function parseContentQuery(
     }
   } else if (typeof populateRaw === "string") populate = [populateRaw];
   else if (Array.isArray(populateRaw)) populate = populateRaw.map(String) as string[];
+  else if (typeof populateRaw === "object" && populateRaw !== null && !Array.isArray(populateRaw))
+    populate = populateRaw as Record<string, unknown>;
   else populate = undefined;
 
   const fields = params.fields;
-  const fieldsList: string[] | undefined =
-    typeof fields === "string" ? (fields === "*" ? undefined : fields.split(",")) : undefined;
+  let fieldsList: string[] | undefined;
+  if (typeof fields === "string") fieldsList = fields === "*" ? undefined : fields.split(",").map((s) => s.trim());
+  else if (Array.isArray(fields)) fieldsList = fields.map(String);
+  else if (fields && typeof fields === "object")
+    fieldsList = Object.keys(fields)
+      .sort((a, b) => Number(a) - Number(b))
+      .map((k) => String((fields as Record<string, unknown>)[k]));
+  else fieldsList = undefined;
 
   const publicationState = (params.publicationState as "live" | "preview") || "live";
   const status = (params.status as "draft" | "published" | "scheduled") || undefined;

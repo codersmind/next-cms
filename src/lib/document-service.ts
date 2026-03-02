@@ -624,6 +624,41 @@ async function formatDocument(
 
   const doPopulate = populate === "*" || (Array.isArray(populate) && populate.length > 0) || (typeof populate === "object" && Object.keys(populate).length > 0);
 
+  const shouldPopulate = (fieldName: string): boolean => {
+    if (populate === "*") return true;
+    if (Array.isArray(populate)) return populate.includes(fieldName);
+    if (typeof populate === "object" && populate !== null) return fieldName in populate;
+    return false;
+  };
+
+  const getPopulateFields = (fieldName: string): string[] | undefined => {
+    if (typeof populate !== "object" || populate === null || Array.isArray(populate) || !(fieldName in populate))
+      return undefined;
+    const opts = (populate as Record<string, unknown>)[fieldName];
+    if (opts === "*" || opts === null || typeof opts !== "object") return undefined;
+    const f = (opts as Record<string, unknown>).fields;
+    if (Array.isArray(f)) return f.map(String);
+    if (f && typeof f === "object" && !Array.isArray(f))
+      return Object.keys(f)
+        .sort((a, b) => Number(a) - Number(b))
+        .map((k) => String((f as Record<string, string>)[k]));
+    return undefined;
+  };
+
+  const filterByFields = (value: unknown, allowed: string[]): unknown => {
+    if (value == null) return value;
+    if (Array.isArray(value)) return value.map((item) => filterByFields(item, allowed));
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const set = new Set(allowed);
+      const filtered: Record<string, unknown> = {};
+      for (const k of Object.keys(value as Record<string, unknown>)) {
+        if (set.has(k)) filtered[k] = (value as Record<string, unknown>)[k];
+      }
+      return filtered;
+    }
+    return value;
+  };
+
   if (doPopulate) {
     const relations = await prisma.documentRelation.findMany({
       where: { fromDocumentId: doc.id },
@@ -638,16 +673,19 @@ async function formatDocument(
     }
 
     for (const attr of attributes) {
-      if (attr.type === "relation") {
+      if (attr.type === "relation" && shouldPopulate(attr.name)) {
         const relAttr = attr as RelationAttribute;
         const list = relByField[relAttr.name] || [];
         const isMulti = ["oneToMany", "manyToMany", "manyToOne", "manyWay"].includes(relAttr.relation);
         const resolved = await Promise.all(
           list.map((r) => resolveDocument(r.toDocument, fields))
         );
-        out[relAttr.name] = isMulti ? resolved : resolved[0] ?? null;
+        let val: unknown = isMulti ? resolved : resolved[0] ?? null;
+        const popFields = getPopulateFields(attr.name);
+        if (popFields?.length) val = filterByFields(val, popFields);
+        out[relAttr.name] = val;
       }
-      if (attr.type === "media") {
+      if (attr.type === "media" && shouldPopulate(attr.name)) {
         const mediaAttr = attr as MediaAttribute;
         const idOrIds = data[attr.name];
         if (idOrIds != null) {
@@ -667,7 +705,7 @@ async function formatDocument(
         compByUid[uid] = parseAttributes(c.attributes);
       }
       for (const attr of attributes) {
-        if (attr.type === "component") {
+        if (attr.type === "component" && shouldPopulate(attr.name)) {
           const compUid = (attr as { component?: string }).component;
           const compAttrs = compUid ? compByUid[compUid] ?? [] : [];
           const value = out[attr.name];
@@ -681,8 +719,10 @@ async function formatDocument(
           } else if (typeof value === "object" && !Array.isArray(value)) {
             await resolveComponentItemMedia(value as Record<string, unknown>, compAttrs);
           }
+          const popFields = getPopulateFields(attr.name);
+          if (popFields?.length) out[attr.name] = filterByFields(out[attr.name], popFields);
         }
-        if (attr.type === "dynamiczone") {
+        if (attr.type === "dynamiczone" && shouldPopulate(attr.name)) {
           const value = out[attr.name];
           if (!Array.isArray(value)) continue;
           for (const item of value) {
@@ -691,6 +731,8 @@ async function formatDocument(
             const compAttrs = uid ? compByUid[uid] ?? [] : [];
             await resolveComponentItemMedia(item as Record<string, unknown>, compAttrs);
           }
+          const popFields = getPopulateFields(attr.name);
+          if (popFields?.length) out[attr.name] = filterByFields(out[attr.name], popFields);
         }
       }
     }
