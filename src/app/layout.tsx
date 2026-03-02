@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import NextTopLoader from "nextjs-toploader";
 import { ReduxProvider } from "@/components/ReduxProvider";
 import { Toaster } from "react-hot-toast";
 
@@ -16,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <NextTopLoader color="#6366f1" height={3} showSpinner={false} />
         <ReduxProvider>{children}</ReduxProvider>
         <Toaster position="top-right" toastOptions={{ duration: 4000, style: { background: "#27272a", color: "#fafafa", border: "1px solid #3f3f46" } }} />
       </body>
