@@ -40,6 +40,10 @@ function parseAttributes(attributesJson: string): Attribute[] {
   }
 }
 
+function componentUid(category: string, name: string): string {
+  return `${category}.${name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`;
+}
+
 const IN_MEMORY_CAP = 2000;
 
 function isSortByDbColumn(sort?: string[]): boolean {
@@ -653,6 +657,43 @@ async function formatDocument(
         }
       }
     }
+
+    const hasComponentOrDz = attributes.some((a) => a.type === "component" || a.type === "dynamiczone");
+    if (hasComponentOrDz) {
+      const components = await prisma.component.findMany({});
+      const compByUid: Record<string, Attribute[]> = {};
+      for (const c of components) {
+        const uid = componentUid(c.category, c.name);
+        compByUid[uid] = parseAttributes(c.attributes);
+      }
+      for (const attr of attributes) {
+        if (attr.type === "component") {
+          const compUid = (attr as { component?: string }).component;
+          const compAttrs = compUid ? compByUid[compUid] ?? [] : [];
+          const value = out[attr.name];
+          if (value == null) continue;
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (item && typeof item === "object" && !Array.isArray(item)) {
+                await resolveComponentItemMedia(item as Record<string, unknown>, compAttrs);
+              }
+            }
+          } else if (typeof value === "object" && !Array.isArray(value)) {
+            await resolveComponentItemMedia(value as Record<string, unknown>, compAttrs);
+          }
+        }
+        if (attr.type === "dynamiczone") {
+          const value = out[attr.name];
+          if (!Array.isArray(value)) continue;
+          for (const item of value) {
+            if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+            const uid = (item as Record<string, unknown>).__component as string | undefined;
+            const compAttrs = uid ? compByUid[uid] ?? [] : [];
+            await resolveComponentItemMedia(item as Record<string, unknown>, compAttrs);
+          }
+        }
+      }
+    }
   }
 
   if (fields?.length) {
@@ -663,6 +704,29 @@ async function formatDocument(
   }
 
   return out;
+}
+
+async function resolveMediaIds(ids: string[]): Promise<(Record<string, unknown> | null)[]> {
+  if (ids.length === 0) return [];
+  const mediaList = await prisma.media.findMany({ where: { id: { in: ids } } });
+  const byId = Object.fromEntries(mediaList.map((m) => [m.id, m as unknown as Record<string, unknown>]));
+  return ids.map((id) => byId[id] ?? null);
+}
+
+async function resolveComponentItemMedia(
+  item: Record<string, unknown>,
+  compAttrs: Attribute[]
+): Promise<void> {
+  for (const a of compAttrs) {
+    if (a.type !== "media") continue;
+    const mediaAttr = a as MediaAttribute;
+    const idOrIds = item[a.name];
+    if (idOrIds == null) continue;
+    const ids = mediaAttr.multiple ? (Array.isArray(idOrIds) ? idOrIds : [idOrIds]) : [idOrIds];
+    const idList = ids.map((x) => String(x)).filter(Boolean);
+    const resolved = await resolveMediaIds(idList);
+    item[a.name] = mediaAttr.multiple ? resolved : (resolved[0] ?? null);
+  }
 }
 
 async function resolveDocument(
