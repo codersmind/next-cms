@@ -6,7 +6,7 @@ function getJwt(): string | null {
   return localStorage.getItem("jwt");
 }
 
-export const baseQuery = fetchBaseQuery({
+const rawBaseQuery = fetchBaseQuery({
   baseUrl: typeof window !== "undefined" ? "" : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   prepareHeaders(headers) {
     const token = getJwt();
@@ -15,4 +15,17 @@ export const baseQuery = fetchBaseQuery({
     }
     return headers;
   },
-}) as BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError>;
+});
+
+export const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (args, api, extraOptions) => {
+  const result = await rawBaseQuery(args, api, extraOptions);
+  if (result.error?.status === 401 && typeof window !== "undefined") {
+    const url = typeof args === "string" ? args : (args as FetchArgs).url;
+    const isLoginRequest = typeof url === "string" && url.includes("/api/auth/login");
+    const alreadyOnLogin = window.location.pathname === "/admin/login";
+    if (!isLoginRequest && !alreadyOnLogin) {
+      window.location.href = "/admin/login";
+    }
+  }
+  return result;
+};

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Boxes,
@@ -13,6 +13,7 @@ import {
   KeyRound,
   ChevronRight,
   ChevronDown,
+  LogOut,
 } from "lucide-react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useGetContentTypesQuery } from "@/store/api/cmsApi";
@@ -31,6 +32,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isContentManager = pathname.startsWith("/admin/content-manager");
   const isAccess = pathname.startsWith("/admin/users") || pathname.startsWith("/admin/roles") || pathname.startsWith("/admin/permissions");
   const [contentManagerOpen, setContentManagerOpen] = useState(isContentManager);
@@ -43,24 +45,26 @@ export default function AdminLayout({
     if (isAccess) setAccessOpen(true);
   }, [isAccess]);
 
-  const { data: contentTypes } = useGetContentTypesQuery();
+  const isLoginPage = pathname === "/admin/login";
+  const { data: contentTypes } = useGetContentTypesQuery(undefined, { skip: isLoginPage });
 
   return (
     <AuthGuard>
       <div className="flex min-h-screen bg-zinc-950">
-        <aside className="w-64 flex-shrink-0 bg-zinc-900 border-r border-zinc-800 flex flex-col">
-          <div className="p-5 border-b border-zinc-800 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <Boxes className="w-4 h-4 text-white" />
+        {!isLoginPage && (
+          <aside className="w-64 flex-shrink-0 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+            <div className="p-5 border-b border-zinc-800 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+                <Boxes className="w-4 h-4 text-white" />
+              </div>
+              <Link
+                href="/admin"
+                className="text-lg font-semibold text-white hover:text-zinc-200"
+              >
+                Next-CMS
+              </Link>
             </div>
-            <Link
-              href="/admin"
-              className="text-lg font-semibold text-white hover:text-zinc-200"
-            >
-              Next-CMS
-            </Link>
-          </div>
-          <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+            <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
             {navItems.map((item) => {
               const hasSubmenu = "hasSubmenu" in item && item.hasSubmenu;
               if (hasSubmenu && item.href === "/admin/access") {
@@ -202,7 +206,21 @@ export default function AdminLayout({
               );
             })}
           </nav>
+            <div className="p-3 border-t border-zinc-800">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined") localStorage.removeItem("jwt");
+                  router.replace("/admin/login");
+                }}
+                className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:bg-zinc-800 hover:text-white transition-colors"
+              >
+                <LogOut className="w-5 h-5 shrink-0" />
+                Log out
+              </button>
+            </div>
         </aside>
+        )}
         <main className="flex-1 min-w-0 overflow-auto">
           <div className="max-w-5xl mx-auto p-4">{children}</div>
         </main>

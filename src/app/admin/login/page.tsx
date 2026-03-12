@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Formik, Form, type FormikHelpers } from "formik";
 import * as Yup from "yup";
+import toast from "react-hot-toast";
 import { useLoginMutation } from "@/store/api/cmsApi";
 import { FormField } from "@/components/forms/FormField";
 
@@ -33,8 +34,10 @@ export default function LoginPage() {
       }
       router.push("/admin");
       router.refresh();
-    } catch {
-      // error from mutation
+    } catch (err: unknown) {
+      const message =
+        (err as { data?: { error?: string } })?.data?.error ?? "Invalid email or password.";
+      toast.error(message);
     }
   }
 
@@ -59,10 +62,9 @@ export default function LoginPage() {
             label="Password"
             type="password"
           />
-          {"error" in (error || {}) && (
+          {error && (
             <p className="text-sm text-red-400">
-              {(error as { data?: { error?: string } })?.data?.error ??
-                "Login failed"}
+              {(error as { data?: { error?: string } })?.data?.error ?? "Login failed"}
             </p>
           )}
           <button
