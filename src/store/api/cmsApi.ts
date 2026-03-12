@@ -111,6 +111,10 @@ export const cmsApi = createApi({
       }),
     }),
 
+    getMe: builder.query<{ id: string; email: string; username: string | null; firstname: string | null; lastname: string | null; roleId: string | null; blocked: boolean; createdAt: string }, void>({
+      query: () => "/api/auth/me",
+    }),
+
     getContentTypes: builder.query<ContentType[], void>({
       query: () => "/api/content-types",
       transformResponse: (raw: ContentType[]) =>
@@ -481,6 +485,7 @@ export const cmsApi = createApi({
 
 export const {
   useLoginMutation,
+  useGetMeQuery,
   useGetContentTypesQuery,
   useGetContentTypeQuery,
   useCreateContentTypeMutation,

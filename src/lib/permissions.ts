@@ -5,10 +5,19 @@
 
 export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
 
+/** Role names that cannot be deleted (system roles). */
+export const PROTECTED_ROLE_NAMES = ["Super Admin", "Authenticated", "Public"] as const;
+
+export function isProtectedRole(roleName: string): boolean {
+  return PROTECTED_ROLE_NAMES.includes(roleName as (typeof PROTECTED_ROLE_NAMES)[number]);
+}
+
 export const CONTENT_TYPE_ACTIONS = ["find", "findOne", "create", "update", "delete"] as const;
 
+/** Normalize pluralId so permission checks match stored actions (always lowercase). */
 export function contentTypeAction(pluralId: string, action: string): string {
-  return `content-type.${pluralId}.${action}`;
+  const normalized = String(pluralId ?? "").trim().toLowerCase();
+  return `content-type.${normalized}.${action}`;
 }
 
 /** System actions (not tied to a content type). */

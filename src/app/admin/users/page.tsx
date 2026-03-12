@@ -6,6 +6,7 @@ import { Users, Plus, Trash2, Search, ChevronUp, ChevronDown, ChevronLeft, Chevr
 import {
   useGetAdminUsersQuery,
   useGetAdminRolesQuery,
+  useGetMeQuery,
   useCreateAdminUserMutation,
   useUpdateAdminUserMutation,
   useDeleteAdminUserMutation,
@@ -40,6 +41,7 @@ export default function AdminUsersPage() {
   const users = data?.data ?? [];
   const pagination = data?.meta?.pagination;
   const { data: roles } = useGetAdminRolesQuery();
+  const { data: currentUser } = useGetMeQuery();
   const [createUser] = useCreateAdminUserMutation();
   const [updateUser] = useUpdateAdminUserMutation();
   const [deleteUser] = useDeleteAdminUserMutation();
@@ -127,6 +129,7 @@ export default function AdminUsersPage() {
       toast.error("Email required.");
       return;
     }
+    const isSelf = editingId === currentUser?.id;
     try {
       await updateUser({
         id: editingId,
@@ -135,7 +138,7 @@ export default function AdminUsersPage() {
         password: form.password || undefined,
         firstname: form.firstname.trim() || undefined,
         lastname: form.lastname.trim() || undefined,
-        roleId: form.roleId || null,
+        ...(isSelf ? {} : { roleId: form.roleId || null }),
         blocked: form.blocked,
       }).unwrap();
       toast.success("User updated.");
@@ -149,12 +152,19 @@ export default function AdminUsersPage() {
   };
 
   const handleDelete = async (id: string, email: string) => {
+    if (currentUser && id === currentUser.id) {
+      toast.error("You cannot delete your own account.");
+      return;
+    }
     if (!confirm(`Delete user ${email}?`)) return;
     try {
       await deleteUser(id).unwrap();
       toast.success("User deleted.");
-    } catch {
-      toast.error("Failed to delete user.");
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "data" in err && err.data && typeof (err.data as { error?: string }).error === "string"
+        ? (err.data as { error: string }).error
+        : "Failed to delete user.";
+      toast.error(msg);
     }
   };
 
@@ -275,7 +285,15 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-6 py-3 text-right">
                     <button type="button" onClick={() => openEdit(u)} className="text-indigo-400 hover:underline text-sm mr-3">Edit</button>
-                    <button type="button" onClick={() => handleDelete(u.id, u.email)} className="text-red-400 hover:underline text-sm">Delete</button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(u.id, u.email)}
+                      disabled={currentUser?.id === u.id}
+                      title={currentUser?.id === u.id ? "You cannot delete your own account" : undefined}
+                      className="text-red-400 hover:underline text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -388,26 +406,34 @@ export default function AdminUsersPage() {
                 className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
               />
               <label className="block text-sm text-zinc-400">Role</label>
-              <select
-                value={form.roleId ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, roleId: e.target.value || null }))}
-                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
-              >
-                <option value="">— No role —</option>
-                {(roles ?? []).map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
+              {modal === "edit" && editingId === currentUser?.id ? (
+                <p className="text-sm text-zinc-500 py-2">You cannot change your own role.</p>
+              ) : (
+                <select
+                  value={form.roleId ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, roleId: e.target.value || null }))}
+                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
+                >
+                  <option value="">— No role —</option>
+                  {(roles ?? []).map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              )}
               {modal === "edit" && (
-                <label className="flex items-center gap-2 text-sm text-zinc-400">
-                  <input
-                    type="checkbox"
-                    checked={form.blocked}
-                    onChange={(e) => setForm((f) => ({ ...f, blocked: e.target.checked }))}
-                    className="rounded border-zinc-600"
-                  />
-                  Blocked
-                </label>
+                editingId === currentUser?.id ? (
+                  <p className="text-sm text-zinc-500">You cannot block your own account.</p>
+                ) : (
+                  <label className="flex items-center gap-2 text-sm text-zinc-400">
+                    <input
+                      type="checkbox"
+                      checked={form.blocked}
+                      onChange={(e) => setForm((f) => ({ ...f, blocked: e.target.checked }))}
+                      className="rounded border-zinc-600"
+                    />
+                    Blocked
+                  </label>
+                )
               )}
               <div className="flex gap-2 pt-4">
                 <button type="submit" className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500">

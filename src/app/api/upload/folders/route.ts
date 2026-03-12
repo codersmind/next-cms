@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserFromRequest } from "@/lib/auth";
+import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 import { randomBytes } from "crypto";
 
 function pathFromName(name: string): string {
@@ -16,8 +16,10 @@ function pathFromName(name: string): string {
 type MediaFolderRow = { id: string; name: string; path: string; createdAt: string; updatedAt: string };
 
 export async function GET(req: NextRequest) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "media-folders.read");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   try {
     const folders = await prisma.$queryRaw<MediaFolderRow[]>`
       SELECT id, name, path, createdAt, updatedAt FROM MediaFolder ORDER BY path ASC
@@ -30,8 +32,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "media-folders.create");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   let body: { name: string; parentPath?: string };
   try {
     body = await req.json();

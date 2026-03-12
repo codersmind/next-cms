@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { getUserFromRequest } from "@/lib/auth";
+import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 import { randomBytes } from "crypto";
 
 // Resolve to absolute path so directory creation works from any cwd (e.g. Windows)
@@ -29,10 +29,10 @@ function getDateFolder(): string {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "upload.create");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const formData = await req.formData();
   const file = formData.get("files") ?? formData.get("file") ?? formData.get("files[]");
   if (!file || typeof file === "string") {
@@ -111,8 +111,10 @@ export async function POST(req: NextRequest) {
 const PAGE_SIZE = 24;
 
 export async function GET(req: NextRequest) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "media-folders.read");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { searchParams } = new URL(req.url);
   const pageParam = searchParams.get("page");
   const pageSizeParam = searchParams.get("pageSize");

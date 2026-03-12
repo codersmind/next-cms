@@ -74,3 +74,18 @@ export async function canAccess(user: UserWithRole | null, action: string): Prom
   });
   return !!perm;
 }
+
+const PUBLIC_ROLE_NAME = "Public";
+
+/** Returns true if the Public role has the given permission (used for unauthenticated requests to the public API). */
+export async function canPublicAccess(action: string): Promise<boolean> {
+  const role = await prisma.role.findUnique({
+    where: { name: PUBLIC_ROLE_NAME },
+    select: { id: true },
+  });
+  if (!role) return false;
+  const perm = await prisma.permission.findFirst({
+    where: { roleId: role.id, action, enabled: true },
+  });
+  return !!perm;
+}

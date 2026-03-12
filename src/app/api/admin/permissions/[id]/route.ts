@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserFromRequest } from "@/lib/auth";
+import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "admin.permissions");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
   let body: { enabled?: boolean };
   try {
@@ -30,8 +32,10 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromRequest(_req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(_req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "admin.permissions");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
   const existing = await prisma.permission.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });

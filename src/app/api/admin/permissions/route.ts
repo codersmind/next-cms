@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserFromRequest } from "@/lib/auth";
+import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "admin.permissions");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const roleId = req.nextUrl.searchParams.get("roleId");
   if (roleId) {
@@ -23,8 +25,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "admin.permissions");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   let body: { roleId: string; action: string; enabled?: boolean };
   try {

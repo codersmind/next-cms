@@ -9,6 +9,7 @@ import {
   useUpdateAdminRoleMutation,
   useDeleteAdminRoleMutation,
 } from "@/store/api/cmsApi";
+import { isProtectedRole } from "@/lib/permissions";
 import toast from "react-hot-toast";
 
 export default function AdminRolesPage() {
@@ -69,6 +70,10 @@ export default function AdminRolesPage() {
   };
 
   const handleDelete = async (id: string, name: string, usersCount?: number) => {
+    if (isProtectedRole(name)) {
+      toast.error("This role cannot be deleted (system role).");
+      return;
+    }
     if (usersCount && usersCount > 0) {
       toast.error("Cannot delete role with users. Reassign or remove users first.");
       return;
@@ -77,8 +82,11 @@ export default function AdminRolesPage() {
     try {
       await deleteRole(id).unwrap();
       toast.success("Role deleted.");
-    } catch {
-      toast.error("Failed to delete role.");
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "data" in err && err.data && typeof (err.data as { error?: string }).error === "string"
+        ? (err.data as { error: string }).error
+        : "Failed to delete role.";
+      toast.error(msg);
     }
   };
 
@@ -130,7 +138,15 @@ export default function AdminRolesPage() {
                   <td className="px-6 py-3 text-right">
                     <Link href={`/admin/permissions?roleId=${r.id}`} className="text-indigo-400 hover:underline text-sm mr-3">Permissions</Link>
                     <button type="button" onClick={() => openEdit(r)} className="text-indigo-400 hover:underline text-sm mr-3">Edit</button>
-                    <button type="button" onClick={() => handleDelete(r.id, r.name, r.usersCount)} className="text-red-400 hover:underline text-sm">Delete</button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(r.id, r.name, r.usersCount)}
+                      disabled={isProtectedRole(r.name)}
+                      title={isProtectedRole(r.name) ? "System role cannot be deleted" : undefined}
+                      className="text-red-400 hover:underline text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}

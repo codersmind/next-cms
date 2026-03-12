@@ -7,22 +7,31 @@ import {
   UniqueConstraintError,
 } from "@/lib/document-service";
 import { parseContentQuery } from "@/lib/parse-query";
+import { getUserWithRoleFromRequest, canAccess, canPublicAccess } from "@/lib/auth";
+import { contentTypeAction } from "@/lib/permissions";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ pluralId: string }> }
 ) {
   const { pluralId } = await params;
   if (isReservedApiId(pluralId)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const contentType = await getContentTypeByPlural(pluralId);
+  const pluralIdNorm = pluralId.trim().toLowerCase();
+  const contentType = await getContentTypeByPlural(pluralIdNorm);
   if (!contentType) {
     return NextResponse.json({ error: "Content type not found", data: null }, { status: 404 });
   }
-  const queryString = _req.nextUrl.search ? _req.nextUrl.search.slice(1) : "";
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
+  const action = contentTypeAction(pluralIdNorm, "find");
+  const allowed = user ? await canAccess(user, action) : await canPublicAccess(action);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const queryString = req.nextUrl.search ? req.nextUrl.search.slice(1) : "";
   const query = parseContentQuery(queryString);
-  const result = await findDocuments(pluralId, {
+  const result = await findDocuments(pluralIdNorm, {
     filters: query.filters,
     sort: query.sort,
     page: query.page,
@@ -45,9 +54,16 @@ export async function POST(
   if (isReservedApiId(pluralId)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const contentType = await getContentTypeByPlural(pluralId);
+  const pluralIdNorm = pluralId.trim().toLowerCase();
+  const contentType = await getContentTypeByPlural(pluralIdNorm);
   if (!contentType) {
     return NextResponse.json({ error: "Content type not found" }, { status: 404 });
+  }
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
+  const action = contentTypeAction(pluralIdNorm, "create");
+  const allowed = user ? await canAccess(user, action) : await canPublicAccess(action);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   let body: { data?: Record<string, unknown> };
   try {
@@ -57,7 +73,7 @@ export async function POST(
   }
   const data = body.data ?? body;
   try {
-    const result = await createDocument(pluralId, data as Record<string, unknown>);
+    const result = await createDocument(pluralIdNorm, data as Record<string, unknown>);
     if (!result) {
       return NextResponse.json({ error: "Create failed (e.g. single type already exists)" }, { status: 400 });
     }

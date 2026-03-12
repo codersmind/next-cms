@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unlink, rename, mkdir } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { getUserFromRequest } from "@/lib/auth";
+import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 
 const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
 const FILES_PREFIX = "/api/upload/files/";
@@ -11,8 +11,10 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromRequest(_req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(_req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "media-folders.read");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
   const media = await prisma.media.findUnique({ where: { id } });
   if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -23,8 +25,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "media-folders.read");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
   let body: { folder?: string };
   try {
@@ -74,8 +78,10 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromRequest(_req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(_req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "upload.delete");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const media = await prisma.media.findUnique({ where: { id } });

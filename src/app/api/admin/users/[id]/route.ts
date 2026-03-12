@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserFromRequest } from "@/lib/auth";
-import { hashPassword } from "@/lib/auth";
+import { getUserWithRoleFromRequest, canAccess, hashPassword } from "@/lib/auth";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromRequest(_req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(_req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "admin.users");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
   const target = await prisma.user.findUnique({
     where: { id },
@@ -22,8 +23,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "admin.users");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
   let body: { email?: string; username?: string; password?: string; firstname?: string; lastname?: string; blocked?: boolean; roleId?: string | null };
   try {
@@ -35,6 +38,14 @@ export async function PATCH(
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const isSelf = id === user.id;
+  if (isSelf && body.roleId !== undefined) {
+    return NextResponse.json({ error: "You cannot change your own role." }, { status: 400 });
+  }
+  if (isSelf && body.blocked === true) {
+    return NextResponse.json({ error: "You cannot block your own account." }, { status: 400 });
+  }
+
   const data: { email?: string; username?: string | null; password?: string; firstname?: string | null; lastname?: string | null; blocked?: boolean; roleId?: string | null } = {};
   if (body.email != null) data.email = body.email.trim().toLowerCase();
   if (body.username !== undefined) data.username = body.username?.trim() || null;
@@ -42,7 +53,7 @@ export async function PATCH(
   if (body.firstname !== undefined) data.firstname = body.firstname?.trim() || null;
   if (body.lastname !== undefined) data.lastname = body.lastname?.trim() || null;
   if (body.blocked !== undefined) data.blocked = body.blocked;
-  if (body.roleId !== undefined) data.roleId = body.roleId || null;
+  if (body.roleId !== undefined && !isSelf) data.roleId = body.roleId || null;
 
   if (data.email && data.email !== existing.email) {
     const taken = await prisma.user.findUnique({ where: { email: data.email } });
@@ -67,9 +78,14 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromRequest(_req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(_req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "admin.users");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
+  if (id === user.id) {
+    return NextResponse.json({ error: "You cannot delete your own account." }, { status: 400 });
+  }
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await prisma.user.delete({ where: { id } });

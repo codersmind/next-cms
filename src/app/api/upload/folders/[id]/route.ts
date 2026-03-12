@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserFromRequest } from "@/lib/auth";
+import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromRequest(_req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(_req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "media-folders.delete");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
   try {
     const result = await prisma.$executeRaw`DELETE FROM MediaFolder WHERE id = ${id}`;

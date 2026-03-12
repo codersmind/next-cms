@@ -10,8 +10,9 @@ export async function GET(
 ) {
   const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const pluralId = req.nextUrl.searchParams.get("contentType");
-  if (!pluralId) return NextResponse.json({ error: "contentType required" }, { status: 400 });
+  const pluralIdRaw = req.nextUrl.searchParams.get("contentType");
+  if (!pluralIdRaw?.trim()) return NextResponse.json({ error: "contentType required" }, { status: 400 });
+  const pluralId = pluralIdRaw.trim().toLowerCase();
   const allowed = await canAccess(user, contentTypeAction(pluralId, "findOne"));
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { documentId } = await params;
@@ -30,8 +31,9 @@ export async function PUT(
 ) {
   const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const pluralId = req.nextUrl.searchParams.get("contentType");
-  if (!pluralId) return NextResponse.json({ error: "contentType required" }, { status: 400 });
+  const pluralIdRaw = req.nextUrl.searchParams.get("contentType");
+  if (!pluralIdRaw?.trim()) return NextResponse.json({ error: "contentType required" }, { status: 400 });
+  const pluralId = pluralIdRaw.trim().toLowerCase();
   const allowed = await canAccess(user, contentTypeAction(pluralId, "update"));
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { documentId } = await params;
@@ -69,8 +71,9 @@ export async function DELETE(
 ) {
   const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const pluralId = req.nextUrl.searchParams.get("contentType");
-  if (!pluralId) return NextResponse.json({ error: "contentType required" }, { status: 400 });
+  const pluralIdRaw = req.nextUrl.searchParams.get("contentType");
+  if (!pluralIdRaw?.trim()) return NextResponse.json({ error: "contentType required" }, { status: 400 });
+  const pluralId = pluralIdRaw.trim().toLowerCase();
   const allowed = await canAccess(user, contentTypeAction(pluralId, "delete"));
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { documentId } = await params;

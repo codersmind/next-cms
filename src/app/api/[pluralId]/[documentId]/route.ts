@@ -8,22 +8,31 @@ import {
   UniqueConstraintError,
 } from "@/lib/document-service";
 import { parseContentQuery } from "@/lib/parse-query";
+import { getUserWithRoleFromRequest, canAccess, canPublicAccess } from "@/lib/auth";
+import { contentTypeAction } from "@/lib/permissions";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ pluralId: string; documentId: string }> }
 ) {
   const { pluralId, documentId } = await params;
   if (isReservedApiId(pluralId)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const contentType = await getContentTypeByPlural(pluralId);
+  const pluralIdNorm = pluralId.trim().toLowerCase();
+  const contentType = await getContentTypeByPlural(pluralIdNorm);
   if (!contentType) {
     return NextResponse.json({ error: "Content type not found", data: null }, { status: 404 });
   }
-  const queryString = _req.nextUrl.search ? _req.nextUrl.search.slice(1) : "";
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
+  const action = contentTypeAction(pluralIdNorm, "findOne");
+  const allowed = user ? await canAccess(user, action) : await canPublicAccess(action);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const queryString = req.nextUrl.search ? req.nextUrl.search.slice(1) : "";
   const query = parseContentQuery(queryString);
-  const result = await findOneDocument(pluralId, documentId, {
+  const result = await findOneDocument(pluralIdNorm, documentId, {
     populate: query.populate,
     fields: query.fields,
   });
@@ -41,6 +50,17 @@ export async function PUT(
   if (isReservedApiId(pluralId)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const pluralIdNorm = pluralId.trim().toLowerCase();
+  const contentType = await getContentTypeByPlural(pluralIdNorm);
+  if (!contentType) {
+    return NextResponse.json({ error: "Content type not found" }, { status: 404 });
+  }
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
+  const action = contentTypeAction(pluralIdNorm, "update");
+  const allowed = user ? await canAccess(user, action) : await canPublicAccess(action);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   let body: { data?: Record<string, unknown> };
   try {
     body = await req.json();
@@ -49,7 +69,7 @@ export async function PUT(
   }
   const data = body.data ?? body;
   try {
-    const result = await updateDocument(pluralId, documentId, data as Record<string, unknown>);
+    const result = await updateDocument(pluralIdNorm, documentId, data as Record<string, unknown>);
     if (!result) {
       return NextResponse.json({ error: "Document not found or update failed" }, { status: 404 });
     }
@@ -63,14 +83,25 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ pluralId: string; documentId: string }> }
 ) {
   const { pluralId, documentId } = await params;
   if (isReservedApiId(pluralId)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const result = await deleteDocument(pluralId, documentId);
+  const pluralIdNorm = pluralId.trim().toLowerCase();
+  const contentType = await getContentTypeByPlural(pluralIdNorm);
+  if (!contentType) {
+    return NextResponse.json({ error: "Content type not found" }, { status: 404 });
+  }
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
+  const action = contentTypeAction(pluralIdNorm, "delete");
+  const allowed = user ? await canAccess(user, action) : await canPublicAccess(action);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const result = await deleteDocument(pluralIdNorm, documentId);
   if (!result) {
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }

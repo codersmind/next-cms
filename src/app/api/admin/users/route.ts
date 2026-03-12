@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserFromRequest } from "@/lib/auth";
-import { hashPassword } from "@/lib/auth";
+import { getUserWithRoleFromRequest, canAccess, hashPassword } from "@/lib/auth";
 
 const SORT_FIELDS = ["email", "username", "firstname", "lastname", "createdAt", "blocked"] as const;
 
 export async function GET(req: NextRequest) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "admin.users");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const page = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get("pageSize") ?? "25", 10) || 25));
@@ -67,8 +68,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUserFromRequest(req.headers.get("authorization"));
+  const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const allowed = await canAccess(user, "admin.users");
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   let body: { email: string; username?: string; password: string; firstname?: string; lastname?: string; roleId?: string | null };
   try {
