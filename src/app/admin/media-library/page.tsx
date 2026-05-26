@@ -13,6 +13,7 @@ import {
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Image, Upload, FileText, Trash2, FolderPlus, Folder } from "lucide-react";
+import { ImageLightbox } from "@/components/ImageLightbox";
 
 export default function MediaLibraryPage() {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export default function MediaLibraryPage() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [uploadToFolder, setUploadToFolder] = useState<string>("");
   const [uploadStorage, setUploadStorage] = useState<"local" | "s3" | "">("");
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const storageOptions = storageInfo?.available ?? ["local"];
@@ -363,11 +365,19 @@ export default function MediaLibraryPage() {
                   }}
                 >
                   {f.mime.startsWith("image/") ? (
-                    <img
-                      src={f.url}
-                      alt={f.name}
-                      className="w-full aspect-square object-cover"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setLightbox({ src: f.url, alt: f.name })}
+                      className="block w-full cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset"
+                      title="View full size"
+                    >
+                      <img
+                        src={f.url}
+                        alt={f.name}
+                        className="w-full aspect-square object-cover hover:opacity-90 transition-opacity"
+                        draggable={false}
+                      />
+                    </button>
                   ) : (
                     <div className="w-full aspect-square flex items-center justify-center bg-zinc-800">
                       <FileText className="w-10 h-10 text-zinc-600" />
@@ -423,6 +433,13 @@ export default function MediaLibraryPage() {
           </div>
         )}
       </div>
+
+      <ImageLightbox
+        src={lightbox?.src ?? ""}
+        alt={lightbox?.alt}
+        open={!!lightbox}
+        onClose={() => setLightbox(null)}
+      />
     </div>
   );
 }
