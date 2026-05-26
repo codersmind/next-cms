@@ -32,7 +32,9 @@ export async function GET(
   }
   const queryString = req.nextUrl.search ? req.nextUrl.search.slice(1) : "";
   const query = parseContentQuery(queryString);
-  const publicationState = user ? query.publicationState : "live";
+  const publicationState = user
+    ? (query.publicationState === "live" ? "live" : "preview")
+    : "live";
   const result = await findOneDocument(pluralIdNorm, documentId, {
     populate: query.populate,
     fields: query.fields,

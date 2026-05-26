@@ -20,6 +20,7 @@ export async function GET(
   const result = await findOneDocument(pluralId, documentId, {
     populate: query.populate as string[],
     fields: query.fields,
+    publicationState: "preview",
   });
   if (!result) return NextResponse.json({ error: "Document not found" }, { status: 404 });
   return NextResponse.json(result);

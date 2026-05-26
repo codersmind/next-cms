@@ -40,8 +40,10 @@ export default function EditDocumentPage() {
   const router = useRouter();
   const { data: contentTypes } = useGetContentTypesQuery();
   const { data: components } = useGetComponentsQuery();
-  const contentType = contentTypes?.find((t) => t.pluralId === pluralId);
-  const { data: docResponse, isLoading } = useGetDocumentQuery(
+  const contentType = contentTypes?.find(
+    (t) => t.pluralId.toLowerCase() === pluralId.toLowerCase()
+  );
+  const { data: docResponse, isLoading, isError, error: loadError } = useGetDocumentQuery(
     { contentType: pluralId, documentId },
     { skip: !pluralId || !documentId }
   );
@@ -60,10 +62,28 @@ export default function EditDocumentPage() {
     );
   }
 
-  if (isLoading || !doc) {
+  if (isLoading) {
+    return <div className="py-12 text-center text-zinc-500">Loading…</div>;
+  }
+
+  if (!doc || isError) {
+    const apiMsg =
+      loadError &&
+      typeof loadError === "object" &&
+      "data" in loadError &&
+      loadError.data &&
+      typeof (loadError.data as { error?: string }).error === "string"
+        ? (loadError.data as { error: string }).error
+        : null;
     return (
-      <div className="py-12 text-center text-zinc-500">
-        {!doc && !isLoading ? "Document not found." : "Loading…"}
+      <div className="py-12 text-center">
+        <p className="text-zinc-500">{apiMsg ?? "Document not found."}</p>
+        <Link
+          href={`/admin/content-manager/${pluralId}`}
+          className="mt-4 inline-block text-indigo-400 hover:underline"
+        >
+          ← Back to list
+        </Link>
       </div>
     );
   }
