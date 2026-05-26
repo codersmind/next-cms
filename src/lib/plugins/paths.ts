@@ -1,4 +1,5 @@
 import path from "path";
+import { PLUGIN_ID_REGEX } from "./types";
 
 export function getPluginsRoot(): string {
   const env = process.env.PLUGINS_DIR?.trim();
@@ -6,7 +7,14 @@ export function getPluginsRoot(): string {
   return path.join(process.cwd(), "plugins");
 }
 
+export function assertValidPluginInstallPath(installPath: string): void {
+  if (!PLUGIN_ID_REGEX.test(installPath)) {
+    throw new Error("Invalid plugin install path");
+  }
+}
+
 export function getPluginDir(installPath: string): string {
+  assertValidPluginInstallPath(installPath);
   return path.join(getPluginsRoot(), installPath);
 }
 

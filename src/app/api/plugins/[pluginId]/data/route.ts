@@ -3,6 +3,13 @@ import { getUserWithRoleFromRequest } from "@/lib/auth";
 import { canUsePlugin } from "@/lib/plugins/access";
 import { getPluginByPluginId, getPluginDbId } from "@/lib/plugins/registry";
 import { listPluginData, setPluginData, deletePluginData } from "@/lib/plugins/data";
+import { redactPluginStoredValue } from "@/lib/security/plugin-data";
+
+async function requireEnabledPlugin(pluginId: string) {
+  const plugin = await getPluginByPluginId(pluginId);
+  if (!plugin?.enabled) return null;
+  return plugin;
+}
 
 export async function GET(
   req: NextRequest,
@@ -14,15 +21,20 @@ export async function GET(
   if (!(await canUsePlugin(user, pluginId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const plugin = await getPluginByPluginId(pluginId);
-  if (!plugin?.enabled) return NextResponse.json({ error: "Plugin disabled" }, { status: 404 });
+  if (!(await requireEnabledPlugin(pluginId))) {
+    return NextResponse.json({ error: "Plugin disabled" }, { status: 404 });
+  }
 
   const collection = req.nextUrl.searchParams.get("collection") ?? "default";
   const dbId = await getPluginDbId(pluginId);
   if (!dbId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const data = await listPluginData(dbId, collection);
-  return NextResponse.json({ data });
+  const redacted = data.map((row) => ({
+    ...row,
+    value: redactPluginStoredValue(collection, row.key, row.value),
+  }));
+  return NextResponse.json({ data: redacted });
 }
 
 export async function POST(
@@ -34,6 +46,9 @@ export async function POST(
   const { pluginId } = await params;
   if (!(await canUsePlugin(user, pluginId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!(await requireEnabledPlugin(pluginId))) {
+    return NextResponse.json({ error: "Plugin disabled" }, { status: 404 });
   }
 
   let body: { collection?: string; key: string; value: unknown };
@@ -60,6 +75,9 @@ export async function DELETE(
   const { pluginId } = await params;
   if (!(await canUsePlugin(user, pluginId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!(await requireEnabledPlugin(pluginId))) {
+    return NextResponse.json({ error: "Plugin disabled" }, { status: 404 });
   }
 
   const collection = req.nextUrl.searchParams.get("collection") ?? "default";

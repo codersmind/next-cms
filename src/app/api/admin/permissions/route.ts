@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
+import { isAllowedPermissionAction } from "@/lib/security/permissions";
 
 export async function GET(req: NextRequest) {
   const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
@@ -42,6 +43,10 @@ export async function POST(req: NextRequest) {
 
   const role = await prisma.role.findUnique({ where: { id: roleId } });
   if (!role) return NextResponse.json({ error: "Role not found" }, { status: 404 });
+
+  if (!isAllowedPermissionAction(action)) {
+    return NextResponse.json({ error: "Permission action not allowed" }, { status: 400 });
+  }
 
   const created = await prisma.permission.upsert({
     where: { action_roleId: { action: action.trim(), roleId } },

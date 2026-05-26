@@ -32,9 +32,11 @@ export async function GET(
   }
   const queryString = req.nextUrl.search ? req.nextUrl.search.slice(1) : "";
   const query = parseContentQuery(queryString);
+  const publicationState = user ? query.publicationState : "live";
   const result = await findOneDocument(pluralIdNorm, documentId, {
     populate: query.populate,
     fields: query.fields,
+    publicationState,
   });
   if (!result) {
     return NextResponse.json({ error: "Document not found", data: null }, { status: 404 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
+import { assertInsideRoot, normalizeRelativePath } from "@/lib/security/path";
 
 const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
 
@@ -21,10 +22,11 @@ export async function GET(
   const { path: pathSegments } = await params;
   if (!pathSegments?.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const filePath = path.join(UPLOAD_DIR, ...pathSegments);
   try {
+    const rel = normalizeRelativePath(pathSegments);
+    const filePath = assertInsideRoot(UPLOAD_DIR, rel);
     const buffer = await readFile(filePath);
-    const ext = path.extname(pathSegments[pathSegments.length - 1]).toLowerCase();
+    const ext = path.extname(rel).toLowerCase();
     const contentType = mime[ext] || "application/octet-stream";
     return new NextResponse(buffer, {
       headers: { "Content-Type": contentType },

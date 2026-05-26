@@ -1,3 +1,4 @@
+import type { UserWithRole } from "../auth";
 import type { PluginAutomation, PluginManifest } from "./types";
 import { listEnabledPluginsForMenu, getPluginByPluginId } from "./registry";
 
@@ -68,8 +69,10 @@ export function getManifestAutomations(manifest: PluginManifest): PluginAutomati
   return manifest.automations ?? [];
 }
 
-export async function listPluginAutomations(): Promise<PluginAutomationListItem[]> {
-  const menu = await listEnabledPluginsForMenu();
+export async function listPluginAutomations(
+  user?: UserWithRole | null
+): Promise<PluginAutomationListItem[]> {
+  const menu = await listEnabledPluginsForMenu(user);
   const items: PluginAutomationListItem[] = [];
 
   for (const m of menu) {

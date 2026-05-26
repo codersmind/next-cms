@@ -7,6 +7,6 @@ export async function GET(req: NextRequest) {
   const user = await getUserWithRoleFromRequest(req.headers.get("authorization"));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const items = await listEnabledPluginsForMenu();
+  const items = await listEnabledPluginsForMenu(user);
   return NextResponse.json(items);
 }

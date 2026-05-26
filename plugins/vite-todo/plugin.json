@@ -12,6 +12,18 @@
       "icon": "puzzle",
       "order": 46
     },
-    "pages": []
+    "pages": [
+      {
+        "slug": "",
+        "title": "Guide",
+        "type": "readme"
+      },
+      {
+        "slug": "app",
+        "title": "Todo app",
+        "type": "html",
+        "htmlFile": "app/index.html"
+      }
+    ]
   }
 }

@@ -2,9 +2,24 @@ import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "default-secret-change-me"
-);
+let jwtSecretCache: Uint8Array | null = null;
+
+function getJwtSecret(): Uint8Array {
+  if (jwtSecretCache) return jwtSecretCache;
+  const raw = process.env.JWT_SECRET?.trim();
+  if (!raw) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("JWT_SECRET environment variable is required in production");
+    }
+    jwtSecretCache = new TextEncoder().encode("dev-only-insecure-jwt-secret-do-not-use-in-prod");
+    return jwtSecretCache;
+  }
+  if (raw.length < 32 && process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET must be at least 32 characters in production");
+  }
+  jwtSecretCache = new TextEncoder().encode(raw);
+  return jwtSecretCache;
+}
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
@@ -19,12 +34,12 @@ export async function createToken(userId: string): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 }
 
 export async function verifyToken(token: string): Promise<{ userId: string } | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getJwtSecret());
     const sub = payload.sub;
     if (!sub || typeof sub !== "string") return null;
     return { userId: sub };

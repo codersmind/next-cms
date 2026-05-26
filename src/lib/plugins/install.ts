@@ -7,6 +7,8 @@ import { parseManifestJson, loadPagesFromFile, mergeManifestPages } from "./mani
 import type { PluginManifest } from "./types";
 
 const MAX_ZIP_BYTES = 15 * 1024 * 1024;
+const MAX_ZIP_ENTRIES = 500;
+const MAX_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;
 
 function findPluginJsonEntry(entries: AdmZip.IZipEntry[]): {
   entry: AdmZip.IZipEntry;
@@ -40,6 +42,17 @@ export async function installPluginFromZip(buffer: Buffer): Promise<{
 
   const zip = new AdmZip(buffer);
   const entries = zip.getEntries();
+  if (entries.length > MAX_ZIP_ENTRIES) {
+    throw new Error(`Plugin ZIP exceeds ${MAX_ZIP_ENTRIES} files`);
+  }
+  let uncompressedTotal = 0;
+  for (const e of entries) {
+    if (e.isDirectory) continue;
+    uncompressedTotal += e.header.size;
+    if (uncompressedTotal > MAX_UNCOMPRESSED_BYTES) {
+      throw new Error("Plugin ZIP uncompressed size too large");
+    }
+  }
   const found = findPluginJsonEntry(entries);
   if (!found) throw new Error("ZIP must contain plugin.json at root or in one folder");
 
@@ -123,6 +136,7 @@ export async function syncBundledPluginsRegistry(): Promise<void> {
   const dirs = await fs.readdir(root, { withFileTypes: true });
   for (const d of dirs) {
     if (!d.isDirectory()) continue;
+    if (!/^[a-z][a-z0-9-]{1,48}$/.test(d.name)) continue;
     const pluginJson = path.join(root, d.name, "plugin.json");
     try {
       const raw = await fs.readFile(pluginJson, "utf8");
@@ -130,8 +144,8 @@ export async function syncBundledPluginsRegistry(): Promise<void> {
       try {
         const pages = await loadPagesFromFile(path.join(root, d.name), "admin/pages.json");
         manifest = mergeManifestPages(manifest, pages);
-      } catch {
-        /* */
+      } catch (err) {
+        console.warn(`[plugins] ${d.name}: could not load admin/pages.json`, err);
       }
       const existing = await prisma.plugin.findUnique({ where: { pluginId: manifest.id } });
       const manifestStr = JSON.stringify(manifest);
@@ -144,7 +158,7 @@ export async function syncBundledPluginsRegistry(): Promise<void> {
             description: manifest.description ?? null,
             author: manifest.author ?? null,
             manifest: manifestStr,
-            installPath: d.name,
+            installPath: manifest.id,
             enabled: true,
           },
         });
@@ -157,6 +171,7 @@ export async function syncBundledPluginsRegistry(): Promise<void> {
             description: manifest.description ?? null,
             author: manifest.author ?? null,
             manifest: manifestStr,
+            installPath: manifest.id,
           },
         });
       }

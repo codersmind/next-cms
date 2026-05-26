@@ -1,4 +1,6 @@
 import { createHmac, randomBytes } from "crypto";
+import { timingSafeEqualString } from "./security/secrets";
+import { assertSafeWebhookUrl } from "./security/ssrf";
 import { prisma } from "./prisma";
 import { isValidWebhookEvent } from "./webhook-events";
 import { processInboundWebhookActions } from "./webhook-inbound-actions";
@@ -117,6 +119,17 @@ export async function deliverOutboundWebhook(
     headers["X-Webhook-Signature"] = `sha256=${signature}`;
   }
 
+  try {
+    assertSafeWebhookUrl(webhook.url.trim());
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Invalid webhook URL";
+    await logDelivery(webhookId, event, "outbound", {
+      success: false,
+      error: message,
+    });
+    return;
+  }
+
   const started = Date.now();
   try {
     const controller = new AbortController();
@@ -209,9 +222,11 @@ export function verifyInboundSecret(
   webhook: { secret: string | null },
   reqSecret: string | null
 ): boolean {
-  if (!webhook.secret?.trim()) return true;
-  if (!reqSecret?.trim()) return false;
-  return webhook.secret === reqSecret.trim();
+  const expected = webhook.secret?.trim();
+  if (!expected) return false;
+  const provided = reqSecret?.trim();
+  if (!provided) return false;
+  return timingSafeEqualString(expected, provided);
 }
 
 /** Handle POST from external service (any third-party integration). */

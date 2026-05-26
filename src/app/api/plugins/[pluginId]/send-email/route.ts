@@ -3,6 +3,7 @@ import { getUserWithRoleFromRequest } from "@/lib/auth";
 import { canUsePlugin } from "@/lib/plugins/access";
 import { getPluginByPluginId } from "@/lib/plugins/registry";
 import { sendPluginEmail } from "@/lib/plugins/email";
+import { isValidEmailAddress } from "@/lib/security/email";
 
 export async function POST(
   req: NextRequest,
@@ -28,6 +29,12 @@ export async function POST(
   }
   if (!body.to?.trim() || !body.subject?.trim() || !body.html?.trim()) {
     return NextResponse.json({ error: "to, subject, html required" }, { status: 400 });
+  }
+  if (!isValidEmailAddress(body.to)) {
+    return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
+  }
+  if (body.subject.length > 500 || body.html.length > 500_000) {
+    return NextResponse.json({ error: "subject or html too large" }, { status: 400 });
   }
 
   const result = await sendPluginEmail(pluginId, {

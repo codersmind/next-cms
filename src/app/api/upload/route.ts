@@ -4,6 +4,7 @@ import path from "path";
 import { prisma } from "@/lib/prisma";
 import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 import { randomBytes } from "crypto";
+import { assertInsideRoot, sanitizeUploadFolder } from "@/lib/security/path";
 
 // Resolve to absolute path so directory creation works from any cwd (e.g. Windows)
 const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
@@ -43,9 +44,19 @@ export async function POST(req: NextRequest) {
   const mime = f.type || "application/octet-stream";
   const ext = getExt(mime) || path.extname(f.name) || "";
   const hash = randomBytes(8).toString("hex") + ext;
-  const folderParam = (formData.get("folder") as string)?.trim();
-  const folder = folderParam || getDateFolder();
-  const dir = path.join(UPLOAD_DIR, folder);
+  let folder: string;
+  try {
+    const folderParam = (formData.get("folder") as string)?.trim();
+    folder = sanitizeUploadFolder(folderParam || getDateFolder());
+  } catch {
+    return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
+  }
+  let dir: string;
+  try {
+    dir = assertInsideRoot(UPLOAD_DIR, folder);
+  } catch {
+    return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
+  }
 
   try {
     await mkdir(dir, { recursive: true });
@@ -58,7 +69,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const filePath = path.join(dir, hash);
+  const filePath = assertInsideRoot(dir, hash);
   try {
     await writeFile(filePath, buffer);
   } catch (err) {

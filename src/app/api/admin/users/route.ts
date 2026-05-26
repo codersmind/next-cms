@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserWithRoleFromRequest, canAccess, hashPassword } from "@/lib/auth";
+import { assertAssignableRole } from "@/lib/security/permissions";
 
 const SORT_FIELDS = ["email", "username", "firstname", "lastname", "createdAt", "blocked"] as const;
 
@@ -88,6 +89,15 @@ export async function POST(req: NextRequest) {
   if (username?.trim()) {
     const existingUsername = await prisma.user.findUnique({ where: { username: username.trim() } });
     if (existingUsername) return NextResponse.json({ error: "Username already in use" }, { status: 400 });
+  }
+
+  try {
+    await assertAssignableRole(user, roleId);
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Invalid role" },
+      { status: 400 }
+    );
   }
 
   const hashed = await hashPassword(password);

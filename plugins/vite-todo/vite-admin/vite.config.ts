@@ -8,7 +8,8 @@ const pluginId = "vite-todo";
 
 export default defineConfig({
   plugins: [react()],
-  base: `/api/plugins/${pluginId}/assets/admin/app/`,
+  // Relative assets inherit the HTML URL path; CMS rewrites src/href to add access_token on serve.
+  base: "./",
   build: {
     outDir: path.resolve(__dirname, "../admin/app"),
     emptyOutDir: true,

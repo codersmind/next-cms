@@ -8,8 +8,15 @@ export type TodoItem = {
   updatedAt: string;
 };
 
+function getJwt(): string | null {
+  if (typeof window === "undefined") return null;
+  const fromStorage = localStorage.getItem("jwt");
+  if (fromStorage) return fromStorage;
+  return new URLSearchParams(window.location.search).get("access_token");
+}
+
 function authHeaders(): HeadersInit {
-  const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
+  const jwt = getJwt();
   return {
     "Content-Type": "application/json",
     ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),

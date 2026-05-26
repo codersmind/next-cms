@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserWithRoleFromRequest } from "@/lib/auth";
-import { canManagePlugins } from "@/lib/plugins/access";
+import { canManagePlugins, canUsePlugin } from "@/lib/plugins/access";
 import { getPluginByPluginId } from "@/lib/plugins/registry";
 import { uninstallPlugin } from "@/lib/plugins/install";
 import { prisma } from "@/lib/prisma";
@@ -13,6 +13,11 @@ export async function GET(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { pluginId } = await params;
+  if (!(await canUsePlugin(user, pluginId))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const { syncBundledPluginsRegistry } = await import("@/lib/plugins/install");
+  await syncBundledPluginsRegistry();
   const plugin = await getPluginByPluginId(pluginId);
   if (!plugin) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(plugin);

@@ -39,7 +39,20 @@ export async function PATCH(
   const existing = await prisma.role.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (body.name != null && body.name.trim() !== existing.name) {
+  if (isProtectedRole(existing.name)) {
+    if (body.name != null && body.name.trim() !== existing.name) {
+      return NextResponse.json(
+        { error: "This role cannot be renamed (system role)." },
+        { status: 400 }
+      );
+    }
+    if (body.type !== undefined && body.type?.trim() !== (existing.type ?? "")) {
+      return NextResponse.json(
+        { error: "This role cannot be modified (system role)." },
+        { status: 400 }
+      );
+    }
+  } else if (body.name != null && body.name.trim() !== existing.name) {
     const taken = await prisma.role.findUnique({ where: { name: body.name.trim() } });
     if (taken) return NextResponse.json({ error: "Role name already exists" }, { status: 400 });
   }
@@ -47,9 +60,11 @@ export async function PATCH(
   const updated = await prisma.role.update({
     where: { id },
     data: {
-      ...(body.name != null && { name: body.name.trim() }),
+      ...(!isProtectedRole(existing.name) &&
+        body.name != null && { name: body.name.trim() }),
       ...(body.description !== undefined && { description: body.description?.trim() || null }),
-      ...(body.type !== undefined && { type: body.type?.trim() || null }),
+      ...(!isProtectedRole(existing.name) &&
+        body.type !== undefined && { type: body.type?.trim() || null }),
     },
   });
   return NextResponse.json(updated);

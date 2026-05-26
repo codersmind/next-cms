@@ -390,13 +390,26 @@ function buildOrderBy(sort?: string[]): Record<string, string>[] {
 export async function findOneDocument(
   pluralId: string,
   documentId: string,
-  options: { populate?: string | string[] | Record<string, unknown>; fields?: string[] } = {}
+  options: {
+    populate?: string | string[] | Record<string, unknown>;
+    fields?: string[];
+    publicationState?: "live" | "preview";
+  } = {}
 ) {
   const contentType = await getContentTypeByPlural(pluralId);
   if (!contentType) return null;
 
+  const where: {
+    documentId: string;
+    contentTypeId: string;
+    publishedAt?: { not: null; lte: Date };
+  } = { documentId, contentTypeId: contentType.id };
+  if ((options.publicationState ?? "live") === "live") {
+    where.publishedAt = { not: null, lte: new Date() };
+  }
+
   const doc = await prisma.document.findFirst({
-    where: { documentId, contentTypeId: contentType.id },
+    where,
     include: { contentType: true },
   });
   if (!doc) return null;
@@ -606,11 +619,23 @@ function generateDocumentId(): string {
   return id;
 }
 
+function pickBodyFields(
+  attributes: Attribute[],
+  body: Record<string, unknown>
+): Record<string, unknown> {
+  const allowed = new Set(attributes.map((a) => a.name));
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (allowed.has(key)) out[key] = value;
+  }
+  return out;
+}
+
 function extractRelations(
   attributes: Attribute[],
   body: Record<string, unknown>
 ): { data: Record<string, unknown>; relationFields: Record<string, unknown> } {
-  const data = { ...body };
+  const data = pickBodyFields(attributes, body);
   const relationFields: Record<string, unknown> = {};
   for (const attr of attributes) {
     if (attr.type === "relation" && attr.name in data) {
@@ -640,8 +665,20 @@ async function saveRelations(
       .map((t) => (typeof t === "object" && t !== null && "documentId" in t ? (t as { documentId: string }).documentId : typeof t === "string" ? t : null))
       .filter(Boolean) as string[];
 
+    const targetSingular = relAttr.target ?? relAttr.targetModel;
+    if (!targetSingular) continue;
+
+    const targetCt = await prisma.contentType.findFirst({
+      where: { singularId: targetSingular },
+      select: { id: true },
+    });
+    if (!targetCt) continue;
+
     const toDocs = await prisma.document.findMany({
-      where: { documentId: { in: documentIds } },
+      where: {
+        documentId: { in: documentIds },
+        contentTypeId: targetCt.id,
+      },
       select: { id: true, documentId: true },
     });
     const toIdByDocId = Object.fromEntries(

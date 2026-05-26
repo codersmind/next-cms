@@ -12,6 +12,18 @@ type Props = {
 export function PluginHtmlFrame({ src, title }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(320);
+  const [frameSrc, setFrameSrc] = useState(src);
+
+  useEffect(() => {
+    try {
+      const url = new URL(src, window.location.origin);
+      const token = localStorage.getItem("jwt");
+      if (token) url.searchParams.set("access_token", token);
+      setFrameSrc(`${url.pathname}${url.search}`);
+    } catch {
+      setFrameSrc(src);
+    }
+  }, [src]);
 
   const applyHeight = useCallback((next: number) => {
     const clamped = Math.max(200, Math.min(next + 16, 2400));
@@ -50,16 +62,16 @@ export function PluginHtmlFrame({ src, title }: Props) {
     if (!iframe) return;
     iframe.addEventListener("load", measureIframe);
     return () => iframe.removeEventListener("load", measureIframe);
-  }, [src, measureIframe]);
+  }, [frameSrc, measureIframe]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
       <iframe
         ref={iframeRef}
         title={title}
-        src={src}
-        scrolling="no"
-        style={{ height: `${height}px`, display: "block" }}
+        src={frameSrc}
+        sandbox="allow-scripts allow-forms allow-same-origin"
+        style={{ height: `${height}px`, display: "block", overflow: "hidden" }}
         className="w-full border-0 bg-zinc-950"
       />
     </div>

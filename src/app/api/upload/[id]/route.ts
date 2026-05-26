@@ -3,6 +3,7 @@ import { unlink, rename, mkdir } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
+import { assertInsideRoot, sanitizeUploadFolder } from "@/lib/security/path";
 
 const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
 const FILES_PREFIX = "/api/upload/files/";
@@ -36,15 +37,25 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const newFolder = (body.folder ?? "").trim();
+  let newFolder = "";
+  try {
+    newFolder = sanitizeUploadFolder(body.folder ?? "");
+  } catch {
+    return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
+  }
   const media = await prisma.media.findUnique({ where: { id } });
   if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const oldPath = media.url.startsWith(FILES_PREFIX)
-    ? path.join(UPLOAD_DIR, ...media.url.slice(FILES_PREFIX.length).split("/"))
-    : path.join(UPLOAD_DIR, media.hash);
-  const newDir = newFolder ? path.join(UPLOAD_DIR, newFolder) : UPLOAD_DIR;
-  const newPath = newFolder ? path.join(newDir, media.hash) : path.join(UPLOAD_DIR, media.hash);
+  let oldPath: string;
+  let newPath: string;
+  try {
+    oldPath = media.url.startsWith(FILES_PREFIX)
+      ? assertInsideRoot(UPLOAD_DIR, ...media.url.slice(FILES_PREFIX.length).split("/"))
+      : assertInsideRoot(UPLOAD_DIR, media.hash);
+    newPath = assertInsideRoot(UPLOAD_DIR, newFolder, media.hash);
+  } catch {
+    return NextResponse.json({ error: "Invalid path" }, { status: 400 });
+  }
   const newUrl = newFolder ? `${FILES_PREFIX}${newFolder}/${media.hash}` : `${FILES_PREFIX}${media.hash}`;
 
   if (oldPath === newPath) {

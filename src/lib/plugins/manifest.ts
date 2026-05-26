@@ -91,8 +91,23 @@ function parsePage(p: unknown, index: number): PluginAdminPage {
           };
         })
       : undefined,
-    htmlFile: o.htmlFile != null ? String(o.htmlFile) : undefined,
+    htmlFile: validateHtmlFile(o.htmlFile),
   };
+}
+
+/** Path relative to the plugin's `admin/` folder (e.g. `app/index.html`). */
+function validateHtmlFile(raw: unknown): string | undefined {
+  if (raw == null) return undefined;
+  let file = String(raw).trim().replace(/\\/g, "/");
+  if (!file) return undefined;
+  if (file.includes("..") || file.startsWith("/")) {
+    throw new Error("htmlFile must be a relative path under admin/");
+  }
+  if (file.startsWith("admin/")) file = file.slice("admin/".length);
+  if (!/^[a-zA-Z0-9._/-]+$/.test(file)) {
+    throw new Error("htmlFile must be under admin/ (e.g. app/index.html)");
+  }
+  return file;
 }
 
 export async function loadPagesFromFile(

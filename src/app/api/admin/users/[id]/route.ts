@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserWithRoleFromRequest, canAccess, hashPassword } from "@/lib/auth";
+import { assertAssignableRole } from "@/lib/security/permissions";
 
 export async function GET(
   _req: NextRequest,
@@ -53,7 +54,17 @@ export async function PATCH(
   if (body.firstname !== undefined) data.firstname = body.firstname?.trim() || null;
   if (body.lastname !== undefined) data.lastname = body.lastname?.trim() || null;
   if (body.blocked !== undefined) data.blocked = body.blocked;
-  if (body.roleId !== undefined && !isSelf) data.roleId = body.roleId || null;
+  if (body.roleId !== undefined && !isSelf) {
+    try {
+      await assertAssignableRole(user, body.roleId);
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Invalid role" },
+        { status: 400 }
+      );
+    }
+    data.roleId = body.roleId || null;
+  }
 
   if (data.email && data.email !== existing.email) {
     const taken = await prisma.user.findUnique({ where: { email: data.email } });
