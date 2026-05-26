@@ -71,7 +71,7 @@ hello-plugin/
 | `id` | Lowercase letters, numbers, hyphens only. Starts with a letter. Example: `order-sync` |
 | `permissions` | Use `plugin.{id}.use` — assign to roles in Admin → Permissions |
 | `capabilities` | `storage` = save data via Plugin API; `email` = send mail; `settings` = config forms |
-| `admin.menu.icon` | `puzzle` or `mail` (shown in sidebar) |
+| `admin.menu.icon` | Sidebar icon name — see [Menu icon names](#menu-icon-names) (default: `puzzle`) |
 | `admin.pages` | Leave `[]` if you use `admin/pages.json` |
 
 ### 3. Add `admin/pages.json`
@@ -190,6 +190,27 @@ Both work. Max size: **15 MB**.
   }
 }
 ```
+
+### Menu icon names
+
+In `plugin.json` set `admin.menu.icon` to any **[Lucide](https://lucide.dev/icons) kebab-case name** (same as on lucide.dev), for example:
+
+```json
+"menu": {
+  "label": "My Plugin",
+  "icon": "mail",
+  "order": 50
+}
+```
+
+Popular values: `puzzle`, `mail`, `boxes`, `file-text`, `image`, `users`, `webhook`, `settings`, `bell`, `globe`, `zap`, `package`, `bar-chart-3`, `database`, `shield`, `key-round`, `shopping-cart`, `calendar`, `code`, …
+
+- **`order`** — lower numbers appear higher in the sidebar (e.g. `50` before `100`).
+- Invalid `icon` values fall back to **`puzzle`**.
+- **Admin → Plugins → Build guide** — searchable list of **all** Lucide icons (1500+); click to copy the name.
+- API: `GET /api/admin/plugins/meta` → `{ "menuIcons": [...], "menuIconList": [...] }`.
+
+Icons come from the `lucide-react` package bundled with the CMS (no manual list to maintain).
 
 ### Settings blocks
 

@@ -10,6 +10,7 @@ import {
   useUpdatePluginMutation,
   useDeletePluginMutation,
 } from "@/store/api/cmsApi";
+import { PluginsBuildInfoPanel } from "@/components/plugins/PluginsBuildInfoPanel";
 
 export default function PluginsAdminPage() {
   const { data: plugins, isLoading } = useGetPluginsQuery();
@@ -50,7 +51,8 @@ export default function PluginsAdminPage() {
             </p>
           </div>
         </div>
-        <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <PluginsBuildInfoPanel />
           <input
             ref={fileRef}
             type="file"

@@ -6,11 +6,20 @@ Next-CMS supports **ZIP plugins** that extend the admin panel without modifying 
 
 **[BUILD-A-PLUGIN.md](./BUILD-A-PLUGIN.md)** — step-by-step guide for building and installing a custom plugin (recommended for developers and plugin authors).
 
+## Build reference in admin
+
+**Admin → Plugins → Build guide** — ZIP layout, example paths, and every valid **`admin.menu.icon`** name (with preview).
+
+`GET /api/admin/plugins/meta` → `{ "menuIcons": ["bell", "boxes", ...] }`
+
+Details: [BUILD-A-PLUGIN.md — Menu icon names](./BUILD-A-PLUGIN.md#menu-icon-names)
+
 ## At a glance
 
 | Item | Location |
 |------|----------|
 | Upload plugins | Admin → **Plugins** |
+| Icon name list | **Plugins → Build guide** or `/api/admin/plugins/meta` |
 | **Full example (recommended)** | `plugins/demo-suite/` — all page types, HTML dashboard, automations |
 | **Vite + React example** | `plugins/vite-todo/` — TODO app, build with Vite then upload |
 | Email-only example | `plugins/mail-sender/` |

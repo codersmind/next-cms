@@ -13,23 +13,13 @@ import {
   KeyRound,
   Webhook,
   Puzzle,
-  Mail,
   ChevronRight,
   ChevronDown,
   LogOut,
-  type LucideIcon,
 } from "lucide-react";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useGetContentTypesQuery, useGetPluginMenuQuery } from "@/store/api/cmsApi";
-
-const PLUGIN_ICONS: Record<string, LucideIcon> = {
-  mail: Mail,
-  puzzle: Puzzle,
-};
-
-function pluginIcon(name: string): LucideIcon {
-  return PLUGIN_ICONS[name.toLowerCase()] ?? Puzzle;
-}
+import { resolvePluginMenuIcon } from "@/lib/plugins/menu-icons";
 
 /** Strip trailing slash so /admin/plugins/x matches href without slash. */
 function normalizePath(path: string): string {
@@ -250,7 +240,7 @@ export default function AdminLayout({
               );
             })}
             {(pluginMenu ?? []).map((item) => {
-              const Icon = pluginIcon(item.icon);
+              const Icon = resolvePluginMenuIcon(item.icon);
               const active =
                 activePluginId != null &&
                 activePluginId === item.pluginId.toLowerCase();
