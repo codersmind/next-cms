@@ -11,6 +11,7 @@ import {
   Users,
   Shield,
   KeyRound,
+  Webhook,
   ChevronRight,
   ChevronDown,
   LogOut,
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/content-manager", label: "Content Manager", icon: FileText, hasSubmenu: true },
   { href: "/admin/content-type-builder", label: "Content-Type Builder", icon: Boxes },
+  { href: "/admin/webhooks", label: "Webhooks", icon: Webhook },
   { href: "/admin/media-library", label: "Media Library", icon: Image },
   { href: "/admin/access", label: "Access", icon: Users, hasSubmenu: true },
 ];

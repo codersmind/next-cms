@@ -98,10 +98,40 @@ export interface AdminPermission {
   enabled: boolean;
 }
 
+export interface WebhookConfig {
+  id: string;
+  name: string;
+  direction: "outbound" | "inbound";
+  url: string | null;
+  hasSecret: boolean;
+  secret?: string;
+  enabled: boolean;
+  events: string[];
+  contentTypes: string[];
+  headers: Record<string, string>;
+  actions?: unknown;
+  deliveriesCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  event: string;
+  direction: string;
+  success: boolean;
+  statusCode: number | null;
+  durationMs: number | null;
+  error: string | null;
+  requestBody: string | null;
+  responseBody: string | null;
+  createdAt: string;
+}
+
 export const cmsApi = createApi({
   reducerPath: "cmsApi",
   baseQuery,
-  tagTypes: ["ContentTypes", "Components", "Documents", "Media", "MediaFolders", "Templates", "Users", "Roles", "Permissions"],
+  tagTypes: ["ContentTypes", "Components", "Documents", "Media", "MediaFolders", "Templates", "Users", "Roles", "Permissions", "Webhooks"],
   endpoints: (builder) => ({
     login: builder.mutation<LoginResponse, LoginRequest>({
       query: (body) => ({
@@ -480,6 +510,70 @@ export const cmsApi = createApi({
       query: (id) => ({ url: `/api/admin/permissions/${id}`, method: "DELETE" }),
       invalidatesTags: (_r, _e, id) => [{ type: "Permissions", id }, { type: "Permissions", id: "LIST" }],
     }),
+
+    getWebhooks: builder.query<WebhookConfig[], void>({
+      query: () => "/api/admin/webhooks",
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: "Webhooks" as const, id })),
+              { type: "Webhooks", id: "LIST" },
+            ]
+          : [{ type: "Webhooks", id: "LIST" }],
+    }),
+
+    createWebhook: builder.mutation<
+      WebhookConfig,
+      {
+        name: string;
+        direction: "outbound" | "inbound";
+        url?: string;
+        secret?: string;
+        generateSecret?: boolean;
+        enabled?: boolean;
+        events?: string[];
+        contentTypes?: string[];
+        headers?: Record<string, string>;
+        actions?: unknown;
+      }
+    >({
+      query: (body) => ({ url: "/api/admin/webhooks", method: "POST", body }),
+      invalidatesTags: [{ type: "Webhooks", id: "LIST" }],
+    }),
+
+    updateWebhook: builder.mutation<
+      WebhookConfig,
+      {
+        id: string;
+        name?: string;
+        url?: string;
+        secret?: string | null;
+        regenerateSecret?: boolean;
+        enabled?: boolean;
+        events?: string[];
+        contentTypes?: string[];
+        headers?: Record<string, string>;
+        actions?: unknown;
+      }
+    >({
+      query: ({ id, ...body }) => ({ url: `/api/admin/webhooks/${id}`, method: "PATCH", body }),
+      invalidatesTags: (_r, _e, { id }) => [{ type: "Webhooks", id }, { type: "Webhooks", id: "LIST" }],
+    }),
+
+    deleteWebhook: builder.mutation<void, string>({
+      query: (id) => ({ url: `/api/admin/webhooks/${id}`, method: "DELETE" }),
+      invalidatesTags: (_r, _e, id) => [{ type: "Webhooks", id }, { type: "Webhooks", id: "LIST" }],
+    }),
+
+    testWebhook: builder.mutation<{ success: boolean; statusCode?: number; error?: string }, string>({
+      query: (id) => ({ url: `/api/admin/webhooks/${id}/test`, method: "POST" }),
+      invalidatesTags: (_r, _e, id) => [{ type: "Webhooks", id }],
+    }),
+
+    getWebhookDeliveries: builder.query<WebhookDelivery[], { id: string; limit?: number }>({
+      query: ({ id, limit }) =>
+        `/api/admin/webhooks/${id}/deliveries${limit ? `?limit=${limit}` : ""}`,
+    }),
   }),
 });
 
@@ -522,4 +616,10 @@ export const {
   useCreateAdminPermissionMutation,
   useUpdateAdminPermissionMutation,
   useDeleteAdminPermissionMutation,
+  useGetWebhooksQuery,
+  useCreateWebhookMutation,
+  useUpdateWebhookMutation,
+  useDeleteWebhookMutation,
+  useTestWebhookMutation,
+  useGetWebhookDeliveriesQuery,
 } = cmsApi;

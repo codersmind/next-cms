@@ -1,7 +1,13 @@
 import Link from "next/link";
-import { LayoutDashboard, Boxes, FileText, Image, ArrowRight } from "lucide-react";
+import { LayoutDashboard, Boxes, FileText, Image, ArrowRight, Webhook } from "lucide-react";
 
 const cards = [
+  {
+    href: "/admin/webhooks",
+    icon: Webhook,
+    title: "Webhooks",
+    description: "Outbound events and inbound callbacks for payments & integrations.",
+  },
   {
     href: "/admin/content-type-builder",
     icon: Boxes,

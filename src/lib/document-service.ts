@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import type { Attribute, RelationAttribute, MediaAttribute } from "@/types/schema";
+import { dispatchDocumentWebhooks } from "./webhook-service";
 
 type DocumentWithContentType = Awaited<ReturnType<typeof prisma.document.findMany>>[number];
 
@@ -14,7 +15,18 @@ export class UniqueConstraintError extends Error {
   }
 }
 
-const RESERVED_API_IDS = ["auth", "upload", "content-types", "content-manager", "users", "roles", "permissions", "media", "admin"];
+const RESERVED_API_IDS = [
+  "auth",
+  "upload",
+  "content-types",
+  "content-manager",
+  "users",
+  "roles",
+  "permissions",
+  "media",
+  "admin",
+  "webhooks",
+];
 
 export function isReservedApiId(pluralId: string): boolean {
   return RESERVED_API_IDS.includes(pluralId.toLowerCase());
@@ -477,6 +489,19 @@ export async function createDocument(
 
   await saveRelations(doc.id, contentType.id, relationFields, attributes);
   const formatted = await formatDocument(doc, attributes, contentType, "*");
+  const entry = formatted as Record<string, unknown>;
+  dispatchDocumentWebhooks("entry.create", {
+    pluralId: contentType.pluralId,
+    singularId: contentType.singularId,
+    entry,
+  });
+  if (publishedAt) {
+    dispatchDocumentWebhooks("entry.publish", {
+      pluralId: contentType.pluralId,
+      singularId: contentType.singularId,
+      entry,
+    });
+  }
   return { data: formatted, meta: {} };
 }
 
@@ -502,6 +527,7 @@ export async function updateDocument(
 
   await checkUniqueConstraints(contentType.id, attributes, mergedData, doc.id);
 
+  const previousPublishedAt = doc.publishedAt;
   let publishedAt: Date | null = doc.publishedAt;
   if (options.publishedAt !== undefined) {
     publishedAt = options.publishedAt == null ? null : options.publishedAt instanceof Date ? options.publishedAt : new Date(options.publishedAt);
@@ -518,6 +544,27 @@ export async function updateDocument(
 
   await saveRelations(updated.id, contentType.id, relationFields, attributes);
   const formatted = await formatDocument(updated, attributes, contentType, "*");
+  const entry = formatted as Record<string, unknown>;
+  const wasPublished = previousPublishedAt != null;
+  const isPublished = publishedAt != null;
+  dispatchDocumentWebhooks("entry.update", {
+    pluralId: contentType.pluralId,
+    singularId: contentType.singularId,
+    entry,
+  });
+  if (!wasPublished && isPublished) {
+    dispatchDocumentWebhooks("entry.publish", {
+      pluralId: contentType.pluralId,
+      singularId: contentType.singularId,
+      entry,
+    });
+  } else if (wasPublished && !isPublished) {
+    dispatchDocumentWebhooks("entry.unpublish", {
+      pluralId: contentType.pluralId,
+      singularId: contentType.singularId,
+      entry,
+    });
+  }
   return { data: formatted, meta: {} };
 }
 
@@ -530,6 +577,11 @@ export async function deleteDocument(pluralId: string, documentId: string) {
   });
   if (!doc) return null;
 
+  const attributes = parseAttributes(contentType.attributes);
+  const docWithType = { ...doc, contentType };
+  const formatted = await formatDocument(docWithType, attributes, contentType, "*");
+  const entry = formatted as Record<string, unknown>;
+
   await prisma.documentRelation.deleteMany({
     where: { fromDocumentId: doc.id },
   });
@@ -537,6 +589,12 @@ export async function deleteDocument(pluralId: string, documentId: string) {
     where: { toDocumentId: doc.id },
   });
   await prisma.document.delete({ where: { id: doc.id } });
+
+  dispatchDocumentWebhooks("entry.delete", {
+    pluralId: contentType.pluralId,
+    singularId: contentType.singularId,
+    entry,
+  });
   return { success: true };
 }
 

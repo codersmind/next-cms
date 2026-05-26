@@ -135,6 +135,42 @@ model Permission {
   @@index([roleId])
 }
 
+// ============ Webhooks (outbound + inbound) ============
+
+model Webhook {
+  id            String   @id @default(cuid())
+  name          String
+  direction     String   // "outbound" | "inbound"
+  url           String?  // target URL (outbound only)
+  secret        String?  // HMAC signing (outbound) or verification (inbound)
+  enabled       Boolean  @default(true)
+  events        String   // JSON: string[] e.g. ["entry.create","entry.update"]
+  contentTypes  String?  // JSON: pluralId[] filter; null/[] = all content types
+  headers       String?  // JSON: Record<string, string> extra outbound headers
+  actions       String?  // JSON: inbound action config (verify + update document)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  deliveries WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id           String   @id @default(cuid())
+  webhookId    String
+  webhook      Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event        String
+  direction    String   // "outbound" | "inbound"
+  success      Boolean  @default(false)
+  statusCode   Int?
+  durationMs   Int?
+  error        String?
+  requestBody  String?
+  responseBody String?
+  createdAt    DateTime @default(now())
+
+  @@index([webhookId, createdAt])
+}
+
 // ============ Content-Type Templates (pre-defined schemas) ============
 
 model ContentTypeTemplate {
