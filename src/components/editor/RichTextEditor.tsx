@@ -1,11 +1,17 @@
 "use client";
 
 import dynamic from "next/dynamic";
-
-const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
-
-import "react-quill/dist/quill.snow.css";
 import "./quill-admin.css";
+
+const QuillEditor = dynamic(() => import("./QuillEditor"), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="rich-text-editor min-h-[12rem] rounded border border-zinc-700 bg-zinc-900/50 animate-pulse"
+      aria-hidden
+    />
+  ),
+});
 
 const modules = {
   toolbar: [
@@ -35,7 +41,7 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   return (
     <div className={className}>
-      <ReactQuill
+      <QuillEditor
         theme="snow"
         value={value ?? ""}
         onChange={onChange}
