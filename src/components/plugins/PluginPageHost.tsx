@@ -6,6 +6,8 @@ import toast from "react-hot-toast";
 import type { PluginAdminPage, PluginManifest } from "@/lib/plugins/types";
 import { PluginAutomationsPanel } from "./PluginAutomationsPanel";
 import { PluginHtmlFrame } from "./PluginHtmlFrame";
+import { PluginMarkdownViewer } from "./PluginMarkdownViewer";
+import { resolveReadmeAssetPath } from "@/lib/plugins/readme-path";
 
 type Props = {
   pluginId: string;
@@ -94,7 +96,13 @@ function PluginPageRenderer({
 }) {
   switch (page.type) {
     case "readme":
-      return <ReadmePage pluginId={pluginId} name={manifest.name} />;
+      return (
+        <ReadmePage
+          pluginId={pluginId}
+          name={manifest.name}
+          readmeFile={page.readmeFile}
+        />
+      );
     case "settings":
       return (
         <SettingsPage
@@ -125,47 +133,72 @@ function PluginPageRenderer({
   }
 }
 
-function ReadmePage({ pluginId, name }: { pluginId: string; name: string }) {
+function ReadmePage({
+  pluginId,
+  name,
+  readmeFile,
+}: {
+  pluginId: string;
+  name: string;
+  readmeFile?: string;
+}) {
   const [readme, setReadme] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const assetPath = resolveReadmeAssetPath(readmeFile);
+
   useEffect(() => {
+    setLoading(true);
+    setLoadError(null);
     void (async () => {
       try {
-        const res = await apiFetch(`/api/plugins/${pluginId}/assets/README.md`);
+        const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
+        const url = new URL(
+          `/api/plugins/${pluginId}/assets/${assetPath.split("/").map(encodeURIComponent).join("/")}`,
+          window.location.origin
+        );
+        if (jwt) url.searchParams.set("access_token", jwt);
+        const res = await fetch(url.toString());
         if (res.ok) {
           setReadme(await res.text());
         } else {
           setReadme(null);
+          setLoadError(res.status === 404 ? `File not found: ${assetPath}` : `Could not load ${assetPath}`);
         }
       } catch {
         setReadme(null);
+        setLoadError(`Could not load ${assetPath}`);
       } finally {
         setLoading(false);
       }
     })();
-  }, [pluginId]);
+  }, [pluginId, assetPath]);
 
   if (loading) return <p className="text-zinc-500">Loading documentation…</p>;
 
   if (readme?.trim()) {
     return (
-      <article className="max-w-none text-sm text-zinc-300">
-        <pre className="whitespace-pre-wrap font-sans leading-relaxed text-zinc-300">{readme}</pre>
-      </article>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 md:p-8">
+        <PluginMarkdownViewer markdown={readme} />
+      </div>
     );
   }
 
   return (
-    <div className="prose prose-invert max-w-none text-sm text-zinc-400">
-      <h2 className="text-white text-lg font-semibold">{name}</h2>
-      <p>
-        Plugin <code className="text-indigo-300">{pluginId}</code> is active. Use the tabs above
-        to configure and run features.
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 text-sm text-zinc-400">
+      <h2 className="text-white text-lg font-semibold mb-2">{name}</h2>
+      {loadError ? (
+        <p className="text-amber-400/90 mb-3">{loadError}</p>
+      ) : null}
+      <p className="mb-2">
+        Plugin <code className="text-indigo-300">{pluginId}</code> is active. Use the tabs above to
+        configure and run features.
       </p>
       <p>
-        Add a <code className="text-indigo-300">README.md</code> file at the plugin root to show
-        documentation here. See <code>docs/BUILD-A-PLUGIN.md</code> in the repository.
+        Add a markdown file at{" "}
+        <code className="text-indigo-300">{assetPath}</code> or set{" "}
+        <code className="text-indigo-300">readmeFile</code> in <code>admin/pages.json</code>.
       </p>
     </div>
   );

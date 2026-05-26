@@ -18,6 +18,8 @@ export interface PluginAdminPage {
   fields?: { name: string; label: string; type: "text" | "textarea" | "richtext" }[];
   /** html page: file under admin/ */
   htmlFile?: string;
+  /** readme page: markdown file (default README.md at plugin root, or e.g. admin/guide.md) */
+  readmeFile?: string;
 }
 
 /** Declarative automation — defined in each plugin's plugin.json (not hardcoded in CMS). */

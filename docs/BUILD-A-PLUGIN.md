@@ -82,7 +82,8 @@ hello-plugin/
     {
       "slug": "",
       "title": "Welcome",
-      "type": "readme"
+      "type": "readme",
+      "readmeFile": "README.md"
     },
     {
       "slug": "notes",
@@ -100,7 +101,14 @@ hello-plugin/
 
 ### 4. Add `README.md` (optional)
 
-Markdown shown on the **readme** page:
+Rendered as HTML on the **readme** page (headings, lists, tables, code blocks). Set `readmeFile` in `pages.json`:
+
+| `readmeFile` | Loads |
+|--------------|--------|
+| `README.md` (default) | `your-plugin/README.md` |
+| `admin/guide.md` | `your-plugin/admin/guide.md` |
+
+Example markdown:
 
 ```markdown
 # Hello Plugin
@@ -237,7 +245,7 @@ Each page becomes a tab in the plugin UI.
 
 | `type` | Purpose | Extra fields |
 |--------|---------|----------------|
-| `readme` | Show `README.md` + intro | — |
+| `readme` | Render a `.md` file (markdown viewer) | `readmeFile` (default `README.md`) |
 | `settings` | Config form from `plugin.json` → `settings` | `settingsKey` |
 | `collection` | List / add / edit / delete records | `collection`, `fields` |
 | `email-send` | Send email UI | Requires `email` in capabilities + SMTP settings |

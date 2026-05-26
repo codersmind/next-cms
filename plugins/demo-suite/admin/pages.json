@@ -3,7 +3,8 @@
     {
       "slug": "",
       "title": "Guide",
-      "type": "readme"
+      "type": "readme",
+      "readmeFile": "README.md"
     },
     {
       "slug": "general",

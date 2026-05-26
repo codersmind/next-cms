@@ -92,7 +92,21 @@ function parsePage(p: unknown, index: number): PluginAdminPage {
         })
       : undefined,
     htmlFile: validateHtmlFile(o.htmlFile),
+    readmeFile: validateReadmeFile(o.readmeFile),
   };
+}
+
+function validateReadmeFile(raw: unknown): string | undefined {
+  if (raw == null) return undefined;
+  const file = String(raw).trim().replace(/\\/g, "/");
+  if (!file) return undefined;
+  if (file.includes("..") || file.startsWith("/")) {
+    throw new Error("readmeFile must be a relative .md path (e.g. README.md or admin/guide.md)");
+  }
+  if (!file.toLowerCase().endsWith(".md")) {
+    throw new Error("readmeFile must end with .md");
+  }
+  return file;
 }
 
 /** Path relative to the plugin's `admin/` folder (e.g. `app/index.html`). */
