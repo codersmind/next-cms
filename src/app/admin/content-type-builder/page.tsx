@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Layout, FileStack, LayoutTemplate, FolderOpen, Boxes, Puzzle } from "lucide-react";
+import { Plus, Layout, FileStack, LayoutTemplate, FolderOpen, Boxes, Puzzle, BookOpen } from "lucide-react";
 import {
   useGetContentTypesQuery,
   useGetTemplatesQuery,
@@ -78,7 +78,14 @@ export default function ContentTypeBuilderPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/content-type-builder/api-docs"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-indigo-500/40 text-indigo-300 text-sm font-medium hover:bg-indigo-600/10 transition-colors"
+          >
+            <BookOpen className="w-4 h-4" />
+            API documentation
+          </Link>
           <Link
             href="/admin/content-type-builder/new?kind=collectionType"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors"
@@ -248,10 +255,10 @@ export default function ContentTypeBuilderPage() {
 
 function ContentTypeRow({ ct }: { ct: ContentType }) {
   return (
-    <li>
+    <li className="flex items-stretch gap-2">
       <Link
         href={`/admin/content-type-builder/${ct.id}`}
-        className="flex items-center justify-between gap-3 py-3 px-4 rounded-lg bg-zinc-800/50 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800 transition-colors"
+        className="flex flex-1 items-center justify-between gap-3 py-3 px-4 rounded-lg bg-zinc-800/50 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800 transition-colors"
       >
         <span className="flex items-center gap-2 font-medium text-white">
           <Layout className="w-4 h-4 text-zinc-500" />
@@ -262,6 +269,13 @@ function ContentTypeRow({ ct }: { ct: ContentType }) {
           {" · "}
           {ct.attributes?.length ?? 0} fields
         </span>
+      </Link>
+      <Link
+        href={`/admin/content-type-builder/api-docs?id=${ct.id}`}
+        title="API documentation"
+        className="flex items-center justify-center px-3 rounded-lg border border-zinc-800 text-zinc-500 hover:text-indigo-300 hover:border-indigo-500/40 hover:bg-zinc-800 transition-colors"
+      >
+        <BookOpen className="w-4 h-4" />
       </Link>
     </li>
   );

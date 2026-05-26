@@ -46,6 +46,7 @@ export default function AdminLayout({
   }, [isAccess]);
 
   const isLoginPage = pathname === "/admin/login";
+  const isWideAdminPage = pathname.startsWith("/admin/content-type-builder/api-docs");
   const { data: contentTypes } = useGetContentTypesQuery(undefined, { skip: isLoginPage });
 
   return (
@@ -222,7 +223,9 @@ export default function AdminLayout({
         </aside>
         )}
         <main className="flex-1 min-w-0 overflow-auto">
-          <div className="max-w-5xl mx-auto p-4">{children}</div>
+          <div className={`mx-auto p-4 ${isWideAdminPage ? "max-w-4xl xl:max-w-5xl" : "max-w-5xl"}`}>
+            {children}
+          </div>
         </main>
       </div>
     </AuthGuard>

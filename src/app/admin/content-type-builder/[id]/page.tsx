@@ -32,7 +32,7 @@ import {
 import { FormField, FormikSwitch } from "@/components/forms";
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { Trash2, ExternalLink, ListChecks, Plus, Link2, Puzzle, LayoutGrid, Settings2, GripVertical, ChevronRight, ListOrdered } from "lucide-react";
+import { Trash2, ExternalLink, ListChecks, Plus, Link2, Puzzle, LayoutGrid, Settings2, GripVertical, ChevronRight, ListOrdered, BookOpen } from "lucide-react";
 
 const FIELD_TYPES = [
   { value: "text", label: "Text" },
@@ -332,14 +332,23 @@ export default function EditContentTypePage() {
               {contentType.kind === "collectionType" ? ` / ${contentType.pluralId}` : ""} (read-only)
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500/10"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete content type
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/admin/content-type-builder/api-docs?id=${id}`}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm text-indigo-300 border border-indigo-500/40 rounded-lg hover:bg-indigo-600/10"
+            >
+              <BookOpen className="w-4 h-4" />
+              API documentation
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500/10"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete content type
+            </button>
+          </div>
         </div>
       </div>
 
