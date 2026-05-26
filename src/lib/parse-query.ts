@@ -14,7 +14,7 @@ export type ParseContentQueryResult = {
 };
 
 /**
- * Parse Strapi-like REST API query params: filters, sort, pagination, populate, fields.
+ * Parse  REST API query params: filters, sort, pagination, populate, fields.
  */
 export function parseContentQuery(
   searchParams: string | Record<string, string | string[] | undefined>

@@ -6,7 +6,7 @@ import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: "Next-CMS",
-  description: "Strapi-like headless CMS",
+  description: "Headless CMS",
 };
 
 export default function RootLayout({

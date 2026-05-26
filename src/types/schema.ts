@@ -1,5 +1,5 @@
 /**
- * Strapi-like content type & field type definitions.
+ *  content type & field type definitions.
  * Attributes are stored as JSON in ContentType.attributes / Component.attributes.
  */
 

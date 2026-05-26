@@ -1,4 +1,4 @@
-// Next-CMS: Strapi-like headless CMS - Prisma Schema
+// Next-CMS: Headless CMS - Prisma Schema
 // Dynamic content types, documents stored as JSON, relations in separate table
 
 generator client {
@@ -99,7 +99,7 @@ model Media {
   updatedAt       DateTime @updatedAt
 }
 
-// ============ Auth & Permissions (Strapi-like) ============
+// ============ Auth & Permissions () ============
 
 model User {
   id        String   @id @default(cuid())

@@ -1,6 +1,6 @@
 # Next-CMS API Reference
 
-Strapi-like REST API for content types, documents, admin, and uploads.
+ REST API for content types, documents, admin, and uploads.
 
 **Base URL:** `https://your-domain.com/api` (or `http://localhost:3000/api` in development)
 
@@ -456,7 +456,7 @@ Used by **GET list** endpoints: Content Manager documents and public `GET /api/[
 
 | Parameter           | Type   | Description |
 |--------------------|--------|-------------|
-| `filters`          | object | Strapi-like filters, e.g. `{ "title": { "$containsi": "hello" } }` or JSON string |
+| `filters`          | object |  filters, e.g. `{ "title": { "$containsi": "hello" } }` or JSON string |
 | `sort`             | string / array | Sort field(s), e.g. `createdAt:desc` or `["title:asc","createdAt:desc"]` |
 | `page`             | number | Page number (default: 1) |
 | `pageSize`         | number | Page size (default: 25, max: 100) |

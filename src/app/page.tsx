@@ -5,7 +5,7 @@ export default function Home() {
     <main className="max-w-2xl mx-auto p-8">
       <h1 className="text-2xl font-semibold mb-2">Next-CMS</h1>
       <p className="text-muted mb-8">
-        Strapi-like headless CMS with dynamic content types, REST API, and admin
+         Headless CMS with dynamic content types, REST API, and admin
         panel.
       </p>
       <ul className="list-none space-y-2">
