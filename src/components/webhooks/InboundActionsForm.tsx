@@ -7,6 +7,11 @@ import {
   type AttributeHint,
 } from "@/lib/webhook-inbound-suggest";
 import { BUILTIN_WEBHOOK_HANDLERS } from "@/lib/webhook-handlers/names";
+import {
+  PluginAutomationPicker,
+  AutomationOutboundHints,
+  type AutomationApplyHints,
+} from "@/components/webhooks/PluginAutomationPicker";
 
 export type ContentTypeOption = {
   pluralId: string;
@@ -24,6 +29,7 @@ export type InboundActionFormState = {
   actionPayloadMappingJson: string;
   actionPublish: boolean;
   actionHandler: string;
+  actionHandlerOptionsJson: string;
 };
 
 export const defaultInboundActionForm = (
@@ -52,6 +58,7 @@ function formStateFromUpdateConfig(
     actionPayloadMappingJson: JSON.stringify(template.copyFromPayload ?? {}, null, 2),
     actionPublish: !!template.publish,
     actionHandler: handler,
+    actionHandlerOptionsJson: "{}",
   };
 }
 
@@ -87,10 +94,22 @@ export function inboundActionsFromForm(form: InboundActionFormState): WebhookInb
     publish: form.actionPublish,
   };
 
-  if (form.actionHandler.trim()) {
+  const handler = form.actionHandler.trim();
+  if (handler) {
+    let handlerOptions: Record<string, unknown> = { ...updateDocument };
+    if (form.actionHandlerOptionsJson.trim() && form.actionHandlerOptionsJson.trim() !== "{}") {
+      try {
+        handlerOptions = JSON.parse(form.actionHandlerOptionsJson) as Record<string, unknown>;
+      } catch {
+        throw new Error("Handler options must be valid JSON");
+      }
+    }
+    if (handler === "plugin.sendEmail") {
+      return { handler, handlerOptions };
+    }
     return {
-      handler: form.actionHandler.trim(),
-      handlerOptions: { ...updateDocument },
+      handler,
+      handlerOptions,
       updateDocument,
     };
   }
@@ -107,11 +126,17 @@ export function inboundFormFromActions(
 
   const u = actions.updateDocument;
   if (u) {
-    return formStateFromUpdateConfig(u, actions.handler ?? "");
+    const fromUpdate = formStateFromUpdateConfig(u, actions.handler ?? "");
+    return {
+      ...fromUpdate,
+      actionHandlerOptionsJson: actions.handlerOptions
+        ? JSON.stringify(actions.handlerOptions, null, 2)
+        : "{}",
+    };
   }
 
   const opts = actions.handlerOptions ?? {};
-  return formStateFromUpdateConfig(
+  const fromHandler = formStateFromUpdateConfig(
     {
       enabled: true,
       contentType: String(opts.contentType ?? contentTypes[0]?.pluralId ?? ""),
@@ -124,6 +149,10 @@ export function inboundFormFromActions(
     },
     actions.handler ?? ""
   );
+  return {
+    ...fromHandler,
+    actionHandlerOptionsJson: JSON.stringify(opts, null, 2),
+  };
 }
 
 type Props = {
@@ -131,9 +160,18 @@ type Props = {
   onChange: (patch: Partial<InboundActionFormState>) => void;
   onReplace: (next: InboundActionFormState) => void;
   contentTypes: ContentTypeOption[];
+  automationHints?: AutomationApplyHints | null;
+  onAutomationHints?: (hints: AutomationApplyHints | null) => void;
 };
 
-export function InboundActionsForm({ form, onChange, onReplace, contentTypes }: Props) {
+export function InboundActionsForm({
+  form,
+  onChange,
+  onReplace,
+  contentTypes,
+  automationHints = null,
+  onAutomationHints,
+}: Props) {
   const selectedType = contentTypes.find((c) => c.pluralId === form.actionContentType);
   const fieldNames = selectedType?.attributes.map((a) => a.name) ?? [];
 
@@ -169,13 +207,21 @@ export function InboundActionsForm({ form, onChange, onReplace, contentTypes }: 
         </button>
       </div>
 
+      <PluginAutomationPicker
+        onApply={(patch, hints) => {
+          onChange({ ...patch, actionEnabled: true });
+          onAutomationHints?.(hints ?? null);
+        }}
+      />
+      <AutomationOutboundHints hints={automationHints} />
+
       <label className="flex items-center gap-2 text-sm text-zinc-300">
         <input
           type="checkbox"
           checked={form.actionEnabled}
           onChange={(e) => onChange({ actionEnabled: e.target.checked })}
         />
-        Enable automatic document update
+        Enable inbound action
       </label>
 
       {form.actionEnabled && (
@@ -295,12 +341,31 @@ export function InboundActionsForm({ form, onChange, onReplace, contentTypes }: 
                 <option key={h} value={h} />
               ))}
             </datalist>
-            <p className="text-xs text-zinc-600 mt-1">
-              Example:{" "}
-              <code className="text-zinc-500">
-                {`{ "documentId": "…", "status": "paid", "data": { "tracking": "1Z…" } }`}
-              </code>
-            </p>
+            {form.actionHandler.trim() === "plugin.sendEmail" && (
+              <div className="mt-3">
+                <label className="block text-xs text-zinc-500 mb-1">
+                  Handler options (JSON) — pluginId, toPath, templateKey, subject, html
+                </label>
+                <textarea
+                  value={form.actionHandlerOptionsJson}
+                  onChange={(e) => onChange({ actionHandlerOptionsJson: e.target.value })}
+                  rows={8}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-white text-xs font-mono"
+                />
+                <p className="text-xs text-zinc-600 mt-1">
+                  Uses webhook payload paths like <code className="text-zinc-500">entry.email</code>.
+                  Placeholders: <code className="text-zinc-500">{`{{entry.name}}`}</code>
+                </p>
+              </div>
+            )}
+            {form.actionHandler.trim() !== "plugin.sendEmail" && (
+              <p className="text-xs text-zinc-600 mt-1">
+                Example payload:{" "}
+                <code className="text-zinc-500">
+                  {`{ "documentId": "…", "status": "paid" }`}
+                </code>
+              </p>
+            )}
           </div>
         </>
       )}

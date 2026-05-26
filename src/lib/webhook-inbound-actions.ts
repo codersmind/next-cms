@@ -18,8 +18,9 @@ export interface WebhookInboundActions {
     /** Set publishedAt to now after update */
     publish?: boolean;
   };
-  /** Optional custom handler from src/lib/webhook-handlers/ */
+  /** Optional custom handler from src/lib/webhook-handlers/ (e.g. plugin.sendEmail) */
   handler?: string;
+  /** Handler-specific config. For plugin.sendEmail: pluginId, toPath, templateKey, subject, html */
   handlerOptions?: Record<string, unknown>;
 }
 

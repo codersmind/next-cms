@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo Suite — API Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      margin: 0;
+      padding: 1.25rem;
+      background: #18181b;
+      color: #e4e4e7;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.25rem; margin: 0 0 0.25rem; color: #fff; }
+    .muted { color: #71717a; font-size: 0.8rem; }
+    section {
+      margin-top: 1.25rem;
+      padding: 1rem;
+      border: 1px solid #3f3f46;
+      border-radius: 0.75rem;
+      background: #27272a;
+    }
+    h2 { font-size: 0.95rem; margin: 0 0 0.75rem; color: #a5b4fc; }
+    label { display: block; font-size: 0.75rem; color: #a1a1aa; margin-bottom: 0.25rem; }
+    input, textarea, select, button {
+      font: inherit;
+      border-radius: 0.5rem;
+      border: 1px solid #52525b;
+      padding: 0.5rem 0.65rem;
+      background: #18181b;
+      color: #fff;
+      width: 100%;
+    }
+    button {
+      width: auto;
+      cursor: pointer;
+      background: #4f46e5;
+      border-color: #4f46e5;
+      margin-top: 0.5rem;
+    }
+    button:hover { background: #6366f1; }
+    button.secondary { background: #3f3f46; border-color: #52525b; }
+    .row { display: grid; gap: 0.75rem; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+    pre {
+      margin: 0.5rem 0 0;
+      padding: 0.75rem;
+      background: #09090b;
+      border-radius: 0.5rem;
+      font-size: 0.7rem;
+      overflow: auto;
+      max-height: 12rem;
+    }
+    .ok { color: #4ade80; }
+    .err { color: #f87171; }
+    ul { margin: 0; padding-left: 1.1rem; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>Demo Suite — API dashboard</h1>
+  <p class="muted">
+    Custom <code>html</code> page. Uses Plugin API with your admin JWT.
+    Plugin id: <strong id="pluginId">demo-suite</strong>
+  </p>
+
+  <section>
+    <h2>1. List plugin data (collection)</h2>
+    <label>Collection</label>
+    <select id="listCollection">
+      <option value="subscribers">subscribers</option>
+      <option value="email-templates">email-templates</option>
+      <option value="activity-log">activity-log</option>
+    </select>
+    <button type="button" id="btnList">Load records</button>
+    <pre id="listOut">—</pre>
+  </section>
+
+  <section>
+    <h2>2. Save a subscriber</h2>
+    <div class="row">
+      <div>
+        <label>Key (unique id)</label>
+        <input id="subKey" placeholder="subscriber-1" />
+      </div>
+      <div>
+        <label>Email</label>
+        <input id="subEmail" type="email" placeholder="user@example.com" />
+      </div>
+    </div>
+    <label>Name</label>
+    <input id="subName" placeholder="Jane Doe" />
+    <button type="button" id="btnSaveSub">POST /api/plugins/…/data</button>
+    <pre id="saveOut">—</pre>
+  </section>
+
+  <section>
+    <h2>3. Log activity</h2>
+    <label>Detail</label>
+    <input id="logDetail" placeholder="Clicked test button in dashboard" />
+    <button type="button" id="btnLog">Append activity-log entry</button>
+    <pre id="logOut">—</pre>
+  </section>
+
+  <section>
+    <h2>4. Send test email (email capability)</h2>
+    <p class="muted">Configure SMTP on the SMTP tab first.</p>
+    <label>To</label>
+    <input id="mailTo" type="email" placeholder="you@example.com" />
+    <label>Subject</label>
+    <input id="mailSubject" value="Demo Suite test" />
+    <button type="button" id="btnMail">POST /api/plugins/…/send-email</button>
+    <pre id="mailOut">—</pre>
+  </section>
+
+  <section>
+    <h2>5. Your automations (from plugin.json)</h2>
+    <p class="muted">Connect in Admin → Webhooks → inbound → load Demo Suite automation.</p>
+    <ul>
+      <li><strong>welcome-email-on-create</strong> — plugin.sendEmail to entry.email + template welcome</li>
+      <li><strong>notify-admin-on-create</strong> — plugin.sendEmail to fixed admin address</li>
+    </ul>
+  </section>
+
+  <script>
+    const PLUGIN_ID = "demo-suite";
+
+    function token() {
+      return localStorage.getItem("jwt") || "";
+    }
+
+    async function api(path, init) {
+      const res = await fetch(path, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token(),
+          ...(init && init.headers),
+        },
+      });
+      const text = await res.text();
+      let json;
+      try { json = JSON.parse(text); } catch { json = text; }
+      return { ok: res.ok, status: res.status, body: json };
+    }
+
+    function show(el, result) {
+      el.textContent = JSON.stringify(result, null, 2);
+      el.className = result.ok ? "ok" : "err";
+    }
+
+    document.getElementById("btnList").onclick = async () => {
+      const col = document.getElementById("listCollection").value;
+      const out = document.getElementById("listOut");
+      const r = await api("/api/plugins/" + PLUGIN_ID + "/data?collection=" + encodeURIComponent(col));
+      show(out, r);
+    };
+
+    document.getElementById("btnSaveSub").onclick = async () => {
+      const key = document.getElementById("subKey").value.trim() || "subscriber-" + Date.now();
+      const r = await api("/api/plugins/" + PLUGIN_ID + "/data", {
+        method: "POST",
+        body: JSON.stringify({
+          collection: "subscribers",
+          key,
+          value: {
+            email: document.getElementById("subEmail").value,
+            name: document.getElementById("subName").value,
+            notes: "Created from API dashboard",
+          },
+        }),
+      });
+      show(document.getElementById("saveOut"), r);
+    };
+
+    document.getElementById("btnLog").onclick = async () => {
+      const r = await api("/api/plugins/" + PLUGIN_ID + "/data", {
+        method: "POST",
+        body: JSON.stringify({
+          collection: "activity-log",
+          key: "log-" + Date.now(),
+          value: {
+            action: "dashboard.test",
+            detail: document.getElementById("logDetail").value || "Manual test",
+          },
+        }),
+      });
+      show(document.getElementById("logOut"), r);
+    };
+
+    document.getElementById("btnMail").onclick = async () => {
+      const r = await api("/api/plugins/" + PLUGIN_ID + "/send-email", {
+        method: "POST",
+        body: JSON.stringify({
+          to: document.getElementById("mailTo").value,
+          subject: document.getElementById("mailSubject").value,
+          html: "<p>This message was sent from the <strong>Demo Suite</strong> HTML dashboard.</p>",
+        }),
+      });
+      show(document.getElementById("mailOut"), r);
+    };
+  </script>
+</body>
+</html>

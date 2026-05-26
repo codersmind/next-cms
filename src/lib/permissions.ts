@@ -35,6 +35,7 @@ export const SYSTEM_PERMISSIONS: { action: string; label: string; group: string 
   { action: "admin.roles", label: "Manage roles", group: "Admin" },
   { action: "admin.permissions", label: "Manage permissions", group: "Admin" },
   { action: "admin.webhooks", label: "Manage webhooks", group: "Admin" },
+  { action: "admin.plugins", label: "Install & manage plugins", group: "Admin" },
 ];
 
 export function getContentTypePermissionActions(pluralIds: string[]): { pluralId: string; action: string; label: string }[] {

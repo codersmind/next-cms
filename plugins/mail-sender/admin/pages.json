@@ -1,0 +1,31 @@
+{
+  "pages": [
+    {
+      "slug": "",
+      "title": "Overview",
+      "type": "readme"
+    },
+    {
+      "slug": "settings",
+      "title": "SMTP settings",
+      "type": "settings",
+      "settingsKey": "smtp"
+    },
+    {
+      "slug": "templates",
+      "title": "Email templates",
+      "type": "collection",
+      "collection": "templates",
+      "fields": [
+        { "name": "name", "label": "Name", "type": "text" },
+        { "name": "subject", "label": "Subject", "type": "text" },
+        { "name": "body", "label": "HTML body", "type": "richtext" }
+      ]
+    },
+    {
+      "slug": "send",
+      "title": "Send email",
+      "type": "email-send"
+    }
+  ]
+}

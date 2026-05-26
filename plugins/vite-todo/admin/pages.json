@@ -1,0 +1,15 @@
+{
+  "pages": [
+    {
+      "slug": "",
+      "title": "Guide",
+      "type": "readme"
+    },
+    {
+      "slug": "app",
+      "title": "Todo app",
+      "type": "html",
+      "htmlFile": "app/index.html"
+    }
+  ]
+}

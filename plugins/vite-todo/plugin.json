@@ -1,0 +1,17 @@
+{
+  "id": "vite-todo",
+  "name": "Vite Todo (Example)",
+  "version": "1.0.0",
+  "description": "React + Vite TODO app — example of uploading a built frontend as a plugin",
+  "author": "Next-CMS",
+  "permissions": ["plugin.vite-todo.use"],
+  "capabilities": ["storage"],
+  "admin": {
+    "menu": {
+      "label": "Vite Todo",
+      "icon": "puzzle",
+      "order": 46
+    },
+    "pages": []
+  }
+}

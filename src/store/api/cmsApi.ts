@@ -1,5 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQuery } from "../baseQuery";
+import type { PluginManifest } from "@/lib/plugins/types";
 
 export interface ContentTypeAttribute {
   name: string;
@@ -115,6 +116,40 @@ export interface WebhookConfig {
   updatedAt: string;
 }
 
+export interface PluginRecord {
+  id: string;
+  pluginId: string;
+  name: string;
+  version: string;
+  description: string | null;
+  author: string | null;
+  enabled: boolean;
+  manifest: PluginManifest;
+  installPath: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PluginMenuItem {
+  pluginId: string;
+  label: string;
+  icon: string;
+  order: number;
+  href: string;
+}
+
+export interface PluginAutomationListItem {
+  pluginId: string;
+  pluginName: string;
+  automationId: string;
+  label: string;
+  description?: string;
+  trigger?: { event: string; contentTypes?: string[] };
+  handler: string;
+  handlerOptions?: Record<string, unknown>;
+  capabilities: string[];
+}
+
 export interface WebhookDelivery {
   id: string;
   event: string;
@@ -131,7 +166,7 @@ export interface WebhookDelivery {
 export const cmsApi = createApi({
   reducerPath: "cmsApi",
   baseQuery,
-  tagTypes: ["ContentTypes", "Components", "Documents", "Media", "MediaFolders", "Templates", "Users", "Roles", "Permissions", "Webhooks"],
+  tagTypes: ["ContentTypes", "Components", "Documents", "Media", "MediaFolders", "Templates", "Users", "Roles", "Permissions", "Webhooks", "Plugins"],
   endpoints: (builder) => ({
     login: builder.mutation<LoginResponse, LoginRequest>({
       query: (body) => ({
@@ -574,6 +609,61 @@ export const cmsApi = createApi({
       query: ({ id, limit }) =>
         `/api/admin/webhooks/${id}/deliveries${limit ? `?limit=${limit}` : ""}`,
     }),
+
+    getPlugins: builder.query<PluginRecord[], void>({
+      query: () => "/api/admin/plugins",
+      providesTags: [{ type: "Plugins", id: "LIST" }],
+    }),
+
+    getPluginMenu: builder.query<PluginMenuItem[], void>({
+      query: () => "/api/admin/plugins/menu",
+      providesTags: [{ type: "Plugins", id: "MENU" }],
+    }),
+
+    getPluginAutomations: builder.query<PluginAutomationListItem[], void>({
+      query: () => "/api/admin/plugins/automations",
+      providesTags: [{ type: "Plugins", id: "AUTOMATIONS" }],
+    }),
+
+    getPlugin: builder.query<PluginRecord, string>({
+      query: (pluginId) => `/api/admin/plugins/${pluginId}`,
+      providesTags: (_r, _e, id) => [{ type: "Plugins", id }],
+    }),
+
+    uploadPlugin: builder.mutation<{ ok: boolean; pluginId: string }, FormData>({
+      query: (body) => ({ url: "/api/admin/plugins", method: "POST", body }),
+      invalidatesTags: [
+        { type: "Plugins", id: "LIST" },
+        { type: "Plugins", id: "MENU" },
+        { type: "Plugins", id: "AUTOMATIONS" },
+      ],
+    }),
+
+    updatePlugin: builder.mutation<
+      { pluginId: string; enabled: boolean },
+      { pluginId: string; enabled?: boolean }
+    >({
+      query: ({ pluginId, ...body }) => ({
+        url: `/api/admin/plugins/${pluginId}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: (_r, _e, { pluginId }) => [
+        { type: "Plugins", id: pluginId },
+        { type: "Plugins", id: "LIST" },
+        { type: "Plugins", id: "MENU" },
+        { type: "Plugins", id: "AUTOMATIONS" },
+      ],
+    }),
+
+    deletePlugin: builder.mutation<void, string>({
+      query: (pluginId) => ({ url: `/api/admin/plugins/${pluginId}`, method: "DELETE" }),
+      invalidatesTags: [
+        { type: "Plugins", id: "LIST" },
+        { type: "Plugins", id: "MENU" },
+        { type: "Plugins", id: "AUTOMATIONS" },
+      ],
+    }),
   }),
 });
 
@@ -622,4 +712,11 @@ export const {
   useDeleteWebhookMutation,
   useTestWebhookMutation,
   useGetWebhookDeliveriesQuery,
+  useGetPluginsQuery,
+  useGetPluginMenuQuery,
+  useGetPluginAutomationsQuery,
+  useGetPluginQuery,
+  useUploadPluginMutation,
+  useUpdatePluginMutation,
+  useDeletePluginMutation,
 } = cmsApi;

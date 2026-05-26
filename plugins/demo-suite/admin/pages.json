@@ -1,0 +1,64 @@
+{
+  "pages": [
+    {
+      "slug": "",
+      "title": "Guide",
+      "type": "readme"
+    },
+    {
+      "slug": "general",
+      "title": "General",
+      "type": "settings",
+      "settingsKey": "general"
+    },
+    {
+      "slug": "smtp",
+      "title": "SMTP",
+      "type": "settings",
+      "settingsKey": "smtp"
+    },
+    {
+      "slug": "email-templates",
+      "title": "Email templates",
+      "type": "collection",
+      "collection": "email-templates",
+      "fields": [
+        { "name": "name", "label": "Template name", "type": "text" },
+        { "name": "subject", "label": "Subject line", "type": "text" },
+        { "name": "body", "label": "HTML body", "type": "richtext" }
+      ]
+    },
+    {
+      "slug": "subscribers",
+      "title": "Subscribers",
+      "type": "collection",
+      "collection": "subscribers",
+      "fields": [
+        { "name": "email", "label": "Email", "type": "text" },
+        { "name": "name", "label": "Name", "type": "text" },
+        { "name": "notes", "label": "Notes", "type": "textarea" }
+      ]
+    },
+    {
+      "slug": "activity-log",
+      "title": "Activity log",
+      "type": "collection",
+      "collection": "activity-log",
+      "fields": [
+        { "name": "action", "label": "Action", "type": "text" },
+        { "name": "detail", "label": "Detail", "type": "textarea" }
+      ]
+    },
+    {
+      "slug": "send",
+      "title": "Send email",
+      "type": "email-send"
+    },
+    {
+      "slug": "dashboard",
+      "title": "API dashboard",
+      "type": "html",
+      "htmlFile": "dashboard.html"
+    }
+  ]
+}

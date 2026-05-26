@@ -35,6 +35,7 @@ import {
   type InboundActionFormState,
   type ContentTypeOption,
 } from "@/components/webhooks/InboundActionsForm";
+import type { AutomationApplyHints } from "@/components/webhooks/PluginAutomationPicker";
 
 const DEFAULT_OUTBOUND_EVENTS = ["entry.create", "entry.update", "entry.publish"];
 
@@ -129,6 +130,7 @@ export default function AdminWebhooksPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [automationHints, setAutomationHints] = useState<AutomationApplyHints | null>(null);
 
   const receiveBaseUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -158,6 +160,7 @@ export default function AdminWebhooksPage() {
       ...(direction === "inbound" ? { actionEnabled: true } : { actionEnabled: false }),
     });
     setRevealedSecret(null);
+    setAutomationHints(null);
     setEditingId(null);
     setModal("create");
   };
@@ -178,6 +181,7 @@ export default function AdminWebhooksPage() {
       ...inboundFields,
     });
     setRevealedSecret(null);
+    setAutomationHints(null);
     setEditingId(w.id);
     setModal("edit");
   };
@@ -537,6 +541,8 @@ export default function AdminWebhooksPage() {
                     onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
                     onReplace={(next) => setForm((f) => ({ ...f, ...next }))}
                     contentTypes={contentTypeOptions}
+                    automationHints={automationHints}
+                    onAutomationHints={setAutomationHints}
                   />
                 )}
                 {form.direction === "outbound" && contentTypes && contentTypes.length > 0 && (

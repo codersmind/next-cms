@@ -1,5 +1,9 @@
 import type { WebhookInboundActions, InboundActionResult } from "../webhook-inbound-actions";
 import { runUpdateDocumentAction } from "../webhook-inbound-actions";
+import {
+  runSendPluginEmailAction,
+  type SendPluginEmailHandlerOptions,
+} from "./send-plugin-email";
 
 export type WebhookHandlerContext = {
   payload: Record<string, unknown>;
@@ -45,6 +49,12 @@ registerWebhookHandler("document.updateOnMatch", async (ctx) => {
 registerWebhookHandler("payment.markPaid", async (ctx) => {
   const cfg = resolveUpdateConfig(ctx);
   return runUpdateDocumentAction(ctx.payload, cfg);
+});
+
+/** Send email via plugin declared in handlerOptions.pluginId (from plugin automations or webhook config). */
+registerWebhookHandler("plugin.sendEmail", async (ctx) => {
+  const opts = (ctx.actions.handlerOptions ?? {}) as SendPluginEmailHandlerOptions;
+  return runSendPluginEmailAction(ctx.payload, opts);
 });
 
 export async function runWebhookHandler(

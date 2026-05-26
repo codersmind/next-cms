@@ -26,6 +26,7 @@ const RESERVED_API_IDS = [
   "media",
   "admin",
   "webhooks",
+  "plugins",
 ];
 
 export function isReservedApiId(pluralId: string): boolean {

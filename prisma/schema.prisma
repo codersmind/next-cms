@@ -171,6 +171,38 @@ model WebhookDelivery {
   @@index([webhookId, createdAt])
 }
 
+// ============ Plugins (ZIP install, manifest-driven) ============
+
+model Plugin {
+  id          String   @id @default(cuid())
+  pluginId    String   @unique // manifest id e.g. "mail-sender"
+  name        String
+  version     String
+  description String?
+  author      String?
+  enabled     Boolean  @default(true)
+  manifest    String   // full plugin.json
+  installPath String   // relative dir under PLUGINS_DIR
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  data PluginData[]
+}
+
+model PluginData {
+  id        String   @id @default(cuid())
+  pluginId  String
+  plugin    Plugin   @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  collection String  @default("default") // e.g. "templates", "settings"
+  key       String
+  value     String   // JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pluginId, collection, key])
+  @@index([pluginId, collection])
+}
+
 // ============ Content-Type Templates (pre-defined schemas) ============
 
 model ContentTypeTemplate {

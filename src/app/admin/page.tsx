@@ -1,7 +1,13 @@
 import Link from "next/link";
-import { LayoutDashboard, Boxes, FileText, Image, ArrowRight, Webhook } from "lucide-react";
+import { LayoutDashboard, Boxes, FileText, Image, ArrowRight, Webhook, Puzzle } from "lucide-react";
 
 const cards = [
+  {
+    href: "/admin/plugins",
+    icon: Puzzle,
+    title: "Plugins",
+    description: "Install ZIP extensions — email, integrations, custom admin pages.",
+  },
   {
     href: "/admin/webhooks",
     icon: Webhook,

@@ -1,0 +1,71 @@
+{
+  "id": "demo-suite",
+  "name": "Demo Suite (Full Example)",
+  "version": "1.0.0",
+  "description": "Reference plugin demonstrating every page type, settings, collections, email, HTML dashboard, and automations",
+  "author": "Next-CMS",
+  "minCmsVersion": "0.1.0",
+  "permissions": ["plugin.demo-suite.use"],
+  "capabilities": ["email", "storage", "settings"],
+  "admin": {
+    "menu": {
+      "label": "Demo Suite",
+      "icon": "puzzle",
+      "order": 45
+    },
+    "pages": []
+  },
+  "settings": {
+    "general": {
+      "label": "General",
+      "fields": [
+        { "name": "siteName", "label": "Site name", "type": "text", "default": "My Site" },
+        { "name": "supportEmail", "label": "Support email", "type": "text" },
+        { "name": "webhookBaseUrl", "label": "Public site URL (for webhooks)", "type": "text", "default": "http://localhost:3000" }
+      ]
+    },
+    "smtp": {
+      "label": "SMTP (for Send email tab)",
+      "fields": [
+        { "name": "host", "label": "Host", "type": "text" },
+        { "name": "port", "label": "Port", "type": "text", "default": "587" },
+        { "name": "secure", "label": "SSL/TLS (true/false)", "type": "text", "default": "false" },
+        { "name": "user", "label": "Username", "type": "text" },
+        { "name": "pass", "label": "Password", "type": "text" },
+        { "name": "from", "label": "From address", "type": "text" }
+      ]
+    }
+  },
+  "automations": [
+    {
+      "id": "welcome-email-on-create",
+      "label": "Welcome email when CMS entry is created",
+      "description": "Pair with outbound webhook entry.create. Set templateKey to a key from Email templates. Set content type to your public form API id in Webhooks.",
+      "trigger": { "event": "entry.create", "contentTypes": [] },
+      "action": {
+        "handler": "plugin.sendEmail",
+        "options": {
+          "toPath": "entry.email",
+          "templateCollection": "email-templates",
+          "templateKey": "welcome",
+          "subject": "Welcome to {{entry.name}}!",
+          "html": "<p>Hi {{entry.name}}, thanks for signing up.</p>"
+        }
+      }
+    },
+    {
+      "id": "notify-admin-on-create",
+      "label": "Notify support inbox when entry is created",
+      "description": "Uses subject/html only (no template). Set supportEmail in General settings or edit toPath.",
+      "trigger": { "event": "entry.create", "contentTypes": [] },
+      "action": {
+        "handler": "plugin.sendEmail",
+        "options": {
+          "to": "admin@example.com",
+          "subject": "New submission: {{entry.name}}",
+          "html": "<p>New entry on {{model}}: {{entry.name}} ({{entry.email}})</p>"
+        }
+      }
+    }
+  ]
+}

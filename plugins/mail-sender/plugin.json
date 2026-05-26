@@ -1,0 +1,125 @@
+{
+  "id": "mail-sender",
+  "name": "Mail Sender",
+  "version": "1.0.0",
+  "description": "SMTP email sending and HTML template builder",
+  "author": "Next-CMS",
+  "permissions": [
+    "plugin.mail-sender.use"
+  ],
+  "capabilities": [
+    "email",
+    "storage",
+    "settings"
+  ],
+  "admin": {
+    "menu": {
+      "label": "Email",
+      "icon": "mail",
+      "order": 55
+    },
+    "pages": [
+      {
+        "slug": "",
+        "title": "Overview",
+        "type": "readme"
+      },
+      {
+        "slug": "settings",
+        "title": "SMTP settings",
+        "type": "settings",
+        "settingsKey": "smtp"
+      },
+      {
+        "slug": "templates",
+        "title": "Email templates",
+        "type": "collection",
+        "collection": "templates",
+        "fields": [
+          {
+            "name": "name",
+            "label": "Name",
+            "type": "text"
+          },
+          {
+            "name": "subject",
+            "label": "Subject",
+            "type": "text"
+          },
+          {
+            "name": "body",
+            "label": "HTML body",
+            "type": "richtext"
+          }
+        ]
+      },
+      {
+        "slug": "send",
+        "title": "Send email",
+        "type": "email-send"
+      }
+    ]
+  },
+  "settings": {
+    "smtp": {
+      "label": "SMTP",
+      "fields": [
+        {
+          "name": "host",
+          "label": "Host",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "port",
+          "label": "Port",
+          "type": "text",
+          "default": "587"
+        },
+        {
+          "name": "secure",
+          "label": "Use SSL/TLS",
+          "type": "text",
+          "default": "false"
+        },
+        {
+          "name": "user",
+          "label": "Username",
+          "type": "text"
+        },
+        {
+          "name": "pass",
+          "label": "Password",
+          "type": "text"
+        },
+        {
+          "name": "from",
+          "label": "From address",
+          "type": "text",
+          "required": true
+        }
+      ]
+    }
+  },
+  "automations": [
+    {
+      "id": "send-email-on-entry-create",
+      "label": "Send email when a content entry is created",
+      "description": "Use with an outbound webhook on entry.create. Set templateKey to a template you created in this plugin. Set content type filter in Webhooks admin to your public form API id.",
+      "trigger": {
+        "event": "entry.create",
+        "contentTypes": []
+      },
+      "action": {
+        "handler": "plugin.sendEmail",
+        "options": {
+          "toPath": "entry.email",
+          "templateCollection": "templates",
+          "templateKey": "",
+          "subject": "Thank you, {{entry.name}}",
+          "html": "<p>Hello {{entry.name}}, we received your submission.</p>"
+        }
+      }
+    }
+  ]
+}

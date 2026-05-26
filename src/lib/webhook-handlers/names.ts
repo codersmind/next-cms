@@ -2,4 +2,5 @@
 export const BUILTIN_WEBHOOK_HANDLERS = [
   "document.updateOnMatch",
   "payment.markPaid",
+  "plugin.sendEmail",
 ] as const;

@@ -12,18 +12,44 @@ import {
   Shield,
   KeyRound,
   Webhook,
+  Puzzle,
+  Mail,
   ChevronRight,
   ChevronDown,
   LogOut,
+  type LucideIcon,
 } from "lucide-react";
 import { AuthGuard } from "@/components/AuthGuard";
-import { useGetContentTypesQuery } from "@/store/api/cmsApi";
+import { useGetContentTypesQuery, useGetPluginMenuQuery } from "@/store/api/cmsApi";
+
+const PLUGIN_ICONS: Record<string, LucideIcon> = {
+  mail: Mail,
+  puzzle: Puzzle,
+};
+
+function pluginIcon(name: string): LucideIcon {
+  return PLUGIN_ICONS[name.toLowerCase()] ?? Puzzle;
+}
+
+/** Strip trailing slash so /admin/plugins/x matches href without slash. */
+function normalizePath(path: string): string {
+  if (path.length > 1 && path.endsWith("/")) return path.slice(0, -1);
+  return path;
+}
+
+/** Plugin id from URL e.g. /admin/plugins/mail-sender/settings → mail-sender */
+function activePluginIdFromPath(pathname: string): string | null {
+  const path = normalizePath(pathname);
+  const match = path.match(/^\/admin\/plugins\/([a-z0-9][a-z0-9_-]*)(?:\/|$)/i);
+  return match?.[1]?.toLowerCase() ?? null;
+}
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/content-manager", label: "Content Manager", icon: FileText, hasSubmenu: true },
   { href: "/admin/content-type-builder", label: "Content-Type Builder", icon: Boxes },
   { href: "/admin/webhooks", label: "Webhooks", icon: Webhook },
+  { href: "/admin/plugins", label: "Plugins", icon: Puzzle, exact: true },
   { href: "/admin/media-library", label: "Media Library", icon: Image },
   { href: "/admin/access", label: "Access", icon: Users, hasSubmenu: true },
 ];
@@ -34,9 +60,14 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const path = normalizePath(pathname);
   const router = useRouter();
-  const isContentManager = pathname.startsWith("/admin/content-manager");
-  const isAccess = pathname.startsWith("/admin/users") || pathname.startsWith("/admin/roles") || pathname.startsWith("/admin/permissions");
+  const activePluginId = activePluginIdFromPath(path);
+  const isContentManager = path.startsWith("/admin/content-manager");
+  const isAccess =
+    path.startsWith("/admin/users") ||
+    path.startsWith("/admin/roles") ||
+    path.startsWith("/admin/permissions");
   const [contentManagerOpen, setContentManagerOpen] = useState(isContentManager);
   const [accessOpen, setAccessOpen] = useState(isAccess);
 
@@ -48,8 +79,11 @@ export default function AdminLayout({
   }, [isAccess]);
 
   const isLoginPage = pathname === "/admin/login";
-  const isWideAdminPage = pathname.startsWith("/admin/content-type-builder/api-docs");
+  const isWideAdminPage =
+    path.startsWith("/admin/content-type-builder/api-docs") ||
+    path.startsWith("/admin/plugins");
   const { data: contentTypes } = useGetContentTypesQuery(undefined, { skip: isLoginPage });
+  const { data: pluginMenu } = useGetPluginMenuQuery(undefined, { skip: isLoginPage });
 
   return (
     <AuthGuard>
@@ -97,7 +131,7 @@ export default function AdminLayout({
                         <Link
                           href="/admin/users"
                           className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm ${
-                            pathname === "/admin/users"
+                            path === "/admin/users"
                               ? "text-indigo-400"
                               : "text-zinc-500 hover:text-white"
                           }`}
@@ -108,7 +142,7 @@ export default function AdminLayout({
                         <Link
                           href="/admin/roles"
                           className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm ${
-                            pathname === "/admin/roles"
+                            path === "/admin/roles"
                               ? "text-indigo-400"
                               : "text-zinc-500 hover:text-white"
                           }`}
@@ -119,7 +153,7 @@ export default function AdminLayout({
                         <Link
                           href="/admin/permissions"
                           className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm ${
-                            pathname.startsWith("/admin/permissions")
+                            path.startsWith("/admin/permissions")
                               ? "text-indigo-400"
                               : "text-zinc-500 hover:text-white"
                           }`}
@@ -159,7 +193,7 @@ export default function AdminLayout({
                         <Link
                           href="/admin/content-manager"
                           className={`flex items-center gap-2 px-2.5 py-2 rounded-md text-sm ${
-                            pathname === "/admin/content-manager"
+                            path === "/admin/content-manager"
                               ? "text-indigo-400"
                               : "text-zinc-500 hover:text-white"
                           }`}
@@ -168,7 +202,7 @@ export default function AdminLayout({
                         </Link>
                         {(contentTypes ?? []).map((ct) => {
                           const href = `/admin/content-manager/${ct.pluralId}`;
-                          const active = pathname === href || (pathname.startsWith(href + "/") && pathname.length > href.length);
+                          const active = path === href || path.startsWith(`${href}/`);
                           return (
                             <Link
                               key={ct.id}
@@ -190,7 +224,14 @@ export default function AdminLayout({
                   </div>
                 );
               }
-              const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
+              const isActive =
+                item.href === "/admin"
+                  ? path === "/admin"
+                  : item.href === "/admin/plugins"
+                    ? path === "/admin/plugins"
+                    : "exact" in item && item.exact
+                      ? path === item.href
+                      : path === item.href || path.startsWith(`${item.href}/`);
               const Icon = item.icon;
               return (
                 <Link
@@ -205,6 +246,27 @@ export default function AdminLayout({
                   <Icon className="w-5 h-5 shrink-0" />
                   {item.label}
                   {isActive && <ChevronRight className="w-4 h-4 ml-auto" />}
+                </Link>
+              );
+            })}
+            {(pluginMenu ?? []).map((item) => {
+              const Icon = pluginIcon(item.icon);
+              const active =
+                activePluginId != null &&
+                activePluginId === item.pluginId.toLowerCase();
+              return (
+                <Link
+                  key={item.pluginId}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-indigo-600/20 text-indigo-400"
+                      : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                  }`}
+                >
+                  <Icon className="w-5 h-5 shrink-0" />
+                  {item.label}
+                  {active && <ChevronRight className="w-4 h-4 ml-auto" />}
                 </Link>
               );
             })}
