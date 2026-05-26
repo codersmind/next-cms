@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "fs/promises";
 import path from "path";
-import { assertInsideRoot, normalizeRelativePath } from "@/lib/security/path";
-
-const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
+import { prisma } from "@/lib/prisma";
+import { normalizeRelativePath } from "@/lib/security/path";
+import {
+  getMediaStorage,
+  getStorageForMedia,
+  providerKeyFromMedia,
+} from "@/lib/storage";
+import {
+  buildS3ObjectKey,
+  getDefaultStorageType,
+  isS3Configured,
+} from "@/lib/storage/config";
 
 const mime: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -15,6 +23,8 @@ const mime: Record<string, string> = {
   ".pdf": "application/pdf",
 };
 
+const FILES_PREFIX = "/api/upload/files/";
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -22,14 +32,39 @@ export async function GET(
   const { path: pathSegments } = await params;
   if (!pathSegments?.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  let rel: string;
   try {
-    const rel = normalizeRelativePath(pathSegments);
-    const filePath = assertInsideRoot(UPLOAD_DIR, rel);
-    const buffer = await readFile(filePath);
+    rel = normalizeRelativePath(pathSegments);
+  } catch {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const serveUrl = `${FILES_PREFIX}${rel}`;
+  const media = await prisma.media.findFirst({
+    where: {
+      OR: [{ url: serveUrl }, { providerKey: rel }],
+    },
+  });
+
+  try {
+    let buffer: Buffer;
+    if (media) {
+      buffer = await getStorageForMedia(media).read(providerKeyFromMedia(media));
+    } else if (isS3Configured() && getDefaultStorageType() === "s3") {
+      const parts = rel.split("/");
+      const hash = parts.pop()!;
+      const folder = parts.join("/");
+      buffer = await getMediaStorage("s3").read(buildS3ObjectKey(folder, hash));
+    } else {
+      buffer = await getMediaStorage("local").read(rel);
+    }
     const ext = path.extname(rel).toLowerCase();
     const contentType = mime[ext] || "application/octet-stream";
-    return new NextResponse(buffer, {
-      headers: { "Content-Type": contentType },
+    return new NextResponse(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=86400",
+      },
     });
   } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

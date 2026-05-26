@@ -59,8 +59,16 @@ export interface MediaFile {
   mime: string;
   size: number;
   url: string;
+  storage?: "local" | "s3";
   width: number | null;
   height: number | null;
+}
+
+export interface UploadStorageInfo {
+  default: "local" | "s3";
+  available: ("local" | "s3")[];
+  local: boolean;
+  s3: boolean;
 }
 
 export interface ContentTypeTemplate {
@@ -376,6 +384,10 @@ export const cmsApi = createApi({
           : [{ type: "Media", id: "LIST" }],
     }),
 
+    getUploadStorageInfo: builder.query<UploadStorageInfo, void>({
+      query: () => "/api/upload/storage-info",
+    }),
+
     getMediaFolders: builder.query<{ id: string; name: string; path: string }[], void>({
       query: () => "/api/upload/folders",
       providesTags: (result) =>
@@ -688,6 +700,7 @@ export const {
   useGetMediaListQuery,
   useGetMediaByIdQuery,
   useGetMediaFoldersQuery,
+  useGetUploadStorageInfoQuery,
   useCreateMediaFolderMutation,
   useDeleteMediaFolderMutation,
   useUploadMediaMutation,

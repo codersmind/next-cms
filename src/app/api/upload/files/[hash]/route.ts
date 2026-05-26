@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
-
-const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
+import { getUploadDir } from "@/lib/upload-dir";
+import { assertInsideRoot } from "@/lib/security/path";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ hash: string }> }
 ) {
   const { hash } = await params;
-  const filePath = path.join(UPLOAD_DIR, hash);
+  let filePath: string;
+  try {
+    filePath = assertInsideRoot(getUploadDir(), hash);
+  } catch {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   try {
     const buffer = await readFile(filePath);
     const ext = path.extname(hash).toLowerCase();

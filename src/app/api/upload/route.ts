@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
 import { randomBytes } from "crypto";
-import { assertInsideRoot, sanitizeUploadFolder } from "@/lib/security/path";
-
-// Resolve to absolute path so directory creation works from any cwd (e.g. Windows)
-const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
+import { sanitizeUploadFolder } from "@/lib/security/path";
+import { getUploadMaxBytes } from "@/lib/upload-dir";
+import { getMediaStorage, resolveStorageType } from "@/lib/storage";
 
 function getExt(mime: string): string {
   const map: Record<string, string> = {
@@ -21,7 +20,6 @@ function getExt(mime: string): string {
   return map[mime] || "";
 }
 
-/** Folder structure: uploads/YYYY/MM/ */
 function getDateFolder(): string {
   const now = new Date();
   const y = now.getFullYear();
@@ -34,16 +32,37 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const allowed = await canAccess(user, "upload.create");
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const formData = await req.formData();
   const file = formData.get("files") ?? formData.get("file") ?? formData.get("files[]");
   if (!file || typeof file === "string") {
     return NextResponse.json({ error: "No file" }, { status: 400 });
   }
+
   const f = file as File;
+  const maxBytes = getUploadMaxBytes();
+  if (f.size > maxBytes) {
+    return NextResponse.json(
+      { error: `File too large (max ${Math.round(maxBytes / 1024 / 1024)} MB)` },
+      { status: 413 }
+    );
+  }
+
+  let storageType;
+  try {
+    storageType = resolveStorageType(formData.get("storage")?.toString());
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Invalid storage" },
+      { status: 400 }
+    );
+  }
+
   const buffer = Buffer.from(await f.arrayBuffer());
   const mime = f.type || "application/octet-stream";
   const ext = getExt(mime) || path.extname(f.name) || "";
   const hash = randomBytes(8).toString("hex") + ext;
+
   let folder: string;
   try {
     const folderParam = (formData.get("folder") as string)?.trim();
@@ -51,52 +70,33 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
   }
-  let dir: string;
-  try {
-    dir = assertInsideRoot(UPLOAD_DIR, folder);
-  } catch {
-    return NextResponse.json({ error: "Invalid folder" }, { status: 400 });
-  }
 
+  let stored;
   try {
-    await mkdir(dir, { recursive: true });
+    stored = await getMediaStorage(storageType).upload({ buffer, mime, folder, hash });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to create directory";
-    console.error("Upload mkdir error:", err);
-    return NextResponse.json(
-      { error: `Cannot create upload directory: ${msg}. Ensure the server has write access to the project folder.` },
-      { status: 500 }
-    );
+    const msg = err instanceof Error ? err.message : "Upload failed";
+    console.error("Storage upload error:", err);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 
-  const filePath = assertInsideRoot(dir, hash);
-  try {
-    await writeFile(filePath, buffer);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to write file";
-    console.error("Upload writeFile error:", err);
-    return NextResponse.json(
-      { error: `Cannot save file: ${msg}` },
-      { status: 500 }
-    );
-  }
-
-  const url = `/api/upload/files/${folder}/${hash}`;
   let media;
+  const mediaData = {
+    name: f.name,
+    hash,
+    folder,
+    ext,
+    mime,
+    size: buffer.length,
+    url: stored.url,
+    storage: stored.storage,
+    providerKey: stored.providerKey,
+    width: null,
+    height: null,
+  } as Prisma.MediaCreateInput;
+
   try {
-    media = await prisma.media.create({
-      data: {
-        name: f.name,
-        hash,
-        folder,
-        ext,
-        mime,
-        size: buffer.length,
-        url,
-        width: null,
-        height: null,
-      },
-    });
+    media = await prisma.media.create({ data: mediaData });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Database error";
     console.error("Upload prisma create error:", err);
@@ -108,11 +108,12 @@ export async function POST(req: NextRequest) {
       id: media.id,
       name: media.name,
       hash: media.hash,
-      folder: folder,
+      folder,
       ext: media.ext,
       mime: media.mime,
       size: media.size,
       url: media.url,
+      storage: stored.storage,
       width: media.width,
       height: media.height,
     },
@@ -145,7 +146,6 @@ export async function GET(req: NextRequest) {
   if (search) list = list.filter((m) => m.name.toLowerCase().includes(search));
   if (filter === "images") list = list.filter((m) => m.mime.startsWith("image/"));
 
-  // Backward compatibility: no pagination params => return plain array
   if (pageParam == null && pageSizeParam == null) {
     return NextResponse.json(list);
   }

@@ -92,7 +92,9 @@ model Media {
   ext             String   // .jpg, .png
   mime            String
   size            Float    // bytes
-  url             String   // e.g. /api/upload/files/2025/02/xxx.jpg
+  url             String   // public URL or /api/upload/files/...
+  storage         String   @default("local") // "local" | "s3"
+  providerKey     String?  // object key (S3) or folder/hash path (local)
   width           Int?
   height          Int?
   createdAt       DateTime @default(now())

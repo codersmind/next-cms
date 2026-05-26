@@ -3,6 +3,7 @@
 import {
   useGetMediaQuery,
   useGetMediaFoldersQuery,
+  useGetUploadStorageInfoQuery,
   useCreateMediaFolderMutation,
   useDeleteMediaFolderMutation,
   useUploadMediaMutation,
@@ -23,6 +24,7 @@ export default function MediaLibraryPage() {
 
   const { data: files, isLoading } = useGetMediaQuery(selectedFolder ?? undefined);
   const { data: folders } = useGetMediaFoldersQuery();
+  const { data: storageInfo } = useGetUploadStorageInfoQuery();
   const [upload, { isLoading: uploading }] = useUploadMediaMutation();
   const [createFolder, { isLoading: creatingFolder }] = useCreateMediaFolderMutation();
   const [deleteFolder, { isLoading: deletingFolder }] = useDeleteMediaFolderMutation();
@@ -30,7 +32,14 @@ export default function MediaLibraryPage() {
   const [moveMedia, { isLoading: moving }] = useMoveMediaMutation();
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [uploadToFolder, setUploadToFolder] = useState<string>("");
+  const [uploadStorage, setUploadStorage] = useState<"local" | "s3" | "">("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const storageOptions = storageInfo?.available ?? ["local"];
+  const effectiveStorage =
+    uploadStorage && storageOptions.includes(uploadStorage)
+      ? uploadStorage
+      : storageInfo?.default ?? "local";
 
   function folderDisplayLabel(f: { name: string; path: string }) {
     return f.path.includes("/") ? f.path.replace(/\//g, " / ") : f.name;
@@ -100,6 +109,9 @@ export default function MediaLibraryPage() {
     }
     if (uploadToFolder) {
       formData.set("folder", uploadToFolder);
+    }
+    if (storageOptions.length > 1) {
+      formData.set("storage", effectiveStorage);
     }
     try {
       await upload(formData).unwrap();
@@ -309,6 +321,23 @@ export default function MediaLibraryPage() {
                 ))}
               </select>
             </label>
+            {storageOptions.length > 1 && (
+              <label className="flex items-center gap-2 text-sm text-zinc-400">
+                <span>Storage:</span>
+                <select
+                  value={uploadStorage || storageInfo?.default || "local"}
+                  onChange={(e) => setUploadStorage(e.target.value as "local" | "s3")}
+                  className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {storageOptions.includes("local") && (
+                    <option value="local">Local disk</option>
+                  )}
+                  {storageOptions.includes("s3") && (
+                    <option value="s3">Amazon S3</option>
+                  )}
+                </select>
+              </label>
+            )}
           </div>
           <p className="mt-2 text-sm text-zinc-500">or drag and drop files here</p>
         </div>
@@ -344,9 +373,14 @@ export default function MediaLibraryPage() {
                       <FileText className="w-10 h-10 text-zinc-600" />
                     </div>
                   )}
-                  <p className="p-2 text-xs text-zinc-500 truncate" title={f.name}>
+                  <p className="px-2 pt-2 text-xs text-zinc-500 truncate" title={f.name}>
                     {f.name}
                   </p>
+                  {f.storage === "s3" && (
+                    <p className="px-2 pb-2 text-[10px] uppercase tracking-wide text-indigo-400/80">
+                      S3
+                    </p>
+                  )}
                   {confirmId === f.id ? (
                     <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-2 p-2">
                       <span className="text-xs text-zinc-300 text-center">Delete this file?</span>

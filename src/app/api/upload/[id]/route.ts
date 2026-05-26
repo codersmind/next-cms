@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unlink, rename, mkdir } from "fs/promises";
-import path from "path";
 import { prisma } from "@/lib/prisma";
 import { getUserWithRoleFromRequest, canAccess } from "@/lib/auth";
-import { assertInsideRoot, sanitizeUploadFolder } from "@/lib/security/path";
-
-const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
-const FILES_PREFIX = "/api/upload/files/";
+import { sanitizeUploadFolder } from "@/lib/security/path";
+import { getStorageForMedia, providerKeyFromMedia } from "@/lib/storage";
 
 export async function GET(
   _req: NextRequest,
@@ -46,42 +42,36 @@ export async function PATCH(
   const media = await prisma.media.findUnique({ where: { id } });
   if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  let oldPath: string;
-  let newPath: string;
-  try {
-    oldPath = media.url.startsWith(FILES_PREFIX)
-      ? assertInsideRoot(UPLOAD_DIR, ...media.url.slice(FILES_PREFIX.length).split("/"))
-      : assertInsideRoot(UPLOAD_DIR, media.hash);
-    newPath = assertInsideRoot(UPLOAD_DIR, newFolder, media.hash);
-  } catch {
-    return NextResponse.json({ error: "Invalid path" }, { status: 400 });
-  }
-  const newUrl = newFolder ? `${FILES_PREFIX}${newFolder}/${media.hash}` : `${FILES_PREFIX}${media.hash}`;
-
-  if (oldPath === newPath) {
+  if (newFolder === media.folder) {
     return NextResponse.json(media);
   }
 
+  const storage = getStorageForMedia(media);
+  const providerKey = providerKeyFromMedia(media);
+
   try {
-    await mkdir(path.dirname(newPath), { recursive: true });
-    await rename(oldPath, newPath);
+    const moved = await storage.move({
+      providerKey,
+      hash: media.hash,
+      fromFolder: media.folder,
+      toFolder: newFolder,
+    });
+    const updated = await prisma.media.update({
+      where: { id },
+      data: {
+        folder: newFolder,
+        url: moved.url,
+        providerKey: moved.providerKey,
+        storage: moved.storage,
+      },
+    });
+    return NextResponse.json(updated);
   } catch (err) {
     console.error("Move file error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to move file" },
       { status: 500 }
     );
-  }
-
-  try {
-    const updated = await prisma.media.update({
-      where: { id },
-      data: { folder: newFolder, url: newUrl },
-    });
-    return NextResponse.json(updated);
-  } catch (err) {
-    console.error("Update media error:", err);
-    return NextResponse.json({ error: "Failed to update media record" }, { status: 500 });
   }
 }
 
@@ -98,14 +88,10 @@ export async function DELETE(
   const media = await prisma.media.findUnique({ where: { id } });
   if (!media) return NextResponse.json({ error: "Media not found" }, { status: 404 });
 
-  const filePath = media.url.startsWith(FILES_PREFIX)
-    ? path.join(UPLOAD_DIR, ...media.url.slice(FILES_PREFIX.length).split("/"))
-    : path.join(UPLOAD_DIR, media.hash);
-
   try {
-    await unlink(filePath);
+    await getStorageForMedia(media).delete(providerKeyFromMedia(media));
   } catch (err) {
-    // File may already be missing
+    console.error("Delete file error:", err);
   }
 
   await prisma.media.delete({ where: { id } });
